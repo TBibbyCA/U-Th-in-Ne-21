@@ -20,7 +20,7 @@ library(DT)
 #Read original data csv from Dan Morgan
 
 ```{r}
-my_data <- tbl_df(read.csv("~/Google Drive/U-Th_in_Ne-21/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE)) %>% 
+my_data <- tbl_df(read.csv("~/Box Sync/Research/U-Th_in_Ne-21/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE)) %>% 
   rename(sample_id = ANALYTE, wtkg = WtKg)
 my_data
 ```
