@@ -2,10 +2,12 @@
 output: html_document
 ---
 
+
+#Calculate background 21Ne from U and Th concentrations in quartz
 ```{r setup,include=FALSE}
+#supress written code from displaying in html document
 knitr::opts_chunk$set(echo=FALSE,warning = FALSE)
 ```
-#Calculate background 21Ne from U and Th concentrations
 ```{r,include=FALSE}
 
 #Remove all lists
@@ -17,14 +19,14 @@ library(stringr)
 library(DT)
 ```
 
-#Read original data csv from Dan Morgan
+##Read original data csv from Dan Morgan
 
 ```{r}
 my_data <- tbl_df(read.csv("~/Box Sync/Research/U-Th_in_Ne-21/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE)) %>% 
   rename(sample_id = ANALYTE, wtkg = WtKg)
 my_data
 ```
-#Clean up the data via tidy data
+##Remove special characters from data and adjust headers
 ```{r}
 #set row names to sample ID's
 
@@ -52,7 +54,7 @@ true_data %>%
             num_elements = sum(is.na(numeric_ppm) == F))
 true_data
 ```
-#Add Constants:
+##Create a dataframe of constants:
 ```{r}
 #Analytical Resuts
 sampleAge = 100e6 #Ma
@@ -98,8 +100,10 @@ lambda = c(U238_alpha,U235_alpha,Th232_alpha)
 # Create a data frame of the constants
 elem_info=data_frame(element=c("U","U","Th"),isotope=c("U238","U235","Th232"),abundance,
 mass,num_alpha_decays_in_chain,ne21_nucleogenic_P_rate,lambda)
+
+elem_info
 ```
-#Split elements into U and Th isotopes
+##Split elements into U and Th isotopes
 ```{r}
 #-----write a function to split elements into isotopes U235 and U238-------------
 #so we can create a big ole data frame in which to do parrallel math across rows
@@ -139,7 +143,7 @@ extended_elements <- lapply(elements, atom_splitter, dat = true_data, elem_info 
 
 extended_elements
 ```
-#Merge data and constants into single dataframe
+##Merge data and constants into single dataframe
 ```{r}
 #So first get everything in a single
 #merge the two df's based on common obervation known as isotope
@@ -153,7 +157,8 @@ extended_elements=mutate(extended_elements, avogadro,sampleAge)
 
 datatable(extended_elements)
 ```
-# Analyze data
+
+#Analyze data
 ```{r}
 # Ok so the data is all there finally, now do some math across columns
 #filter entries that don't have isotope abundances since you can't so math on "NA's"
@@ -164,7 +169,8 @@ extended_elements=extended_elements %>%
   as_data_frame()
 
 ```
-#Calculate # of alpha decays given age of sample
+
+##Calculate alpha decays given age of sample
 ```{r}
 extended_elements=extended_elements %>% 
   mutate(alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1))
@@ -178,7 +184,8 @@ extended_elements %>%
   ggtitle("# of Alpha decays based on age of sample")+
   ylab("# of alpha decays")
 ```
-#Calculate alpha particle emitted over time given a U and Th concentration in sample
+
+##Calculate alpha particle emitted over time given a U and Th concentration in sample
 ```{r}
 extended_elements=extended_elements %>% 
   mutate(alpha_particles = num_alpha_decays_in_chain*alpha_decays)
@@ -192,7 +199,8 @@ extended_elements %>%
   xlab("# of alpha particles")+
   ylab("# of alpha decays")
 ```
-#Calculate # of 21Ne atoms produced from isotope decays due to age of sample
+
+##Calculate 21Ne atoms produced from isotope decays due to age of sample
 This is the number of background 21ne in a sample due to the concentration of U and Th
 ```{r}
 extended_elements=extended_elements %>% 
@@ -216,7 +224,7 @@ extended_elements %>%
   ylab("Nucleogenic 21Ne (atoms)")
 
 ```
-#Plotting a dot for each sample and the amount of 21Ne in it, colored by the isotope
+Same thing as above just dots
 ```{r}
 extended_elements %>% 
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms, color=isotope))+
@@ -227,7 +235,8 @@ extended_elements %>%
   ylab("Nucleogenic 21Ne (atoms)")
   #scale_y_log10()
 ```
-#Calculate atoms per gram qtz
+
+##Calculate atoms per gram qtz
 ```{r}
 extended_elements= extended_elements %>% 
   mutate(ne21_atoms_per_gram = ne21_nucl_n_atoms/wtkg)
