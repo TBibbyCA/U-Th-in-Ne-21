@@ -1,0 +1,242 @@
+---
+output: html_document
+---
+
+```{r setup,include=FALSE}
+knitr::opts_chunk$set(echo=FALSE,warning = FALSE)
+```
+#Calculate background 21Ne from U and Th concentrations
+```{r,include=FALSE}
+
+#Remove all lists
+rm(list=ls())
+
+#Load libraries
+library(tidyverse)
+library(stringr)
+library(DT)
+```
+
+#Read original data csv from Dan Morgan
+
+```{r}
+my_data <- tbl_df(read.csv("~/Google Drive/U-Th_in_Ne-21/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE)) %>% 
+  rename(sample_id = ANALYTE, wtkg = WtKg)
+my_data
+```
+#Clean up the data via tidy data
+```{r}
+#set row names to sample ID's
+
+#get meta data from csv cells
+header_names <- my_data$sample_id[1:3]
+meta = my_data %>% 
+  filter(sample_id %in% header_names)
+
+# take my_data, call it true_data
+true_data <- my_data %>% 
+  filter(!(sample_id %in% header_names)) %>% 
+  as_data_frame() %>% 
+  gather(element, ppm, -sample_id,-wtkg) %>% 
+  mutate(numeric_ppm = as.numeric(ppm),
+         wtkg = as.numeric(wtkg), 
+         below_limit_ppm = str_detect(ppm,"<")) %>%
+  arrange((sample_id)) 
+
+
+#Do any operation to all entries titled sample_id
+#this is an example
+true_data %>% 
+  group_by(sample_id) %>% 
+  summarise(domath=numeric_ppm[element=="U"]*numeric_ppm[element=="Th"],
+            num_elements = sum(is.na(numeric_ppm) == F))
+true_data
+```
+#Add Constants:
+```{r}
+#Analytical Resuts
+sampleAge = 100e6 #Ma
+
+#Standards and Constants
+U238_abundance = 0.992742
+U235_abundance = 0.007204
+Th232_abundance = 1
+abundance = c(U238_abundance,U235_abundance,Th232_abundance)
+#names(abundance)<- elements
+
+#Isotope constants
+U238_mass= 238.050788247
+U235_mass = 235.043929918
+Th232_mass = 232.038055325
+mass = c(U238_mass,U235_mass,Th232_mass)
+#names(mass)<- elements
+
+#Number of alpha decays for the radioactive reaction series. (online)
+U238_num_alphas = 8
+U235_num_alphas = 7
+Th232_num_alphas = 6
+num_alpha_decays_in_chain = c(U238_num_alphas,U235_num_alphas,Th232_num_alphas)
+#names(num_alphas)<-elements
+
+avogadro= 6.022E23
+
+#Nucleogenic Neon Production Rates
+U238_21Ne_Prate = 4.04E-8 #via Table 6, Coxx et al 2015
+U235_21Ne_Prate = 5.62E-8 #via Table 6, Coxx et al 2015
+Th232_21Ne_Prate = 6.08E-8 #via Table 6, Coxx et al 2015
+ne21_nucleogenic_P_rate = c(U238_21Ne_Prate,U235_21Ne_Prate,Th232_21Ne_Prate)
+#names(Ne21_Nucl_Prate)<- elements
+
+
+#Alpha Decay Constants "lambda"= ln(2)/T_halflife (confirmed 09/21/2016)
+U238_alpha = log(2)/4.468E9
+U235_alpha = log(2)/7.038E8
+Th232_alpha = log(2)/1.405E10
+lambda = c(U238_alpha,U235_alpha,Th232_alpha)
+#names(lambda)<- elements
+
+# Create a data frame of the constants
+elem_info=data_frame(element=c("U","U","Th"),isotope=c("U238","U235","Th232"),abundance,
+mass,num_alpha_decays_in_chain,ne21_nucleogenic_P_rate,lambda)
+```
+#Split elements into U and Th isotopes
+```{r}
+#-----write a function to split elements into isotopes U235 and U238-------------
+#so we can create a big ole data frame in which to do parrallel math across rows
+
+elements <- unique(true_data$element)
+
+atom_splitter=function(i, dat, elem_info){
+  
+  tdat <- dat %>% 
+    filter(element == i) %>% 
+    mutate(isotope = NA,
+           iso_ppm = numeric_ppm,
+           isoprop = 1)
+  
+  isos <- elem_info %>% 
+    filter(element == i)
+  
+  if (dim(isos)[1] > 0){
+    
+    props <- rep(isos$abundance,length(unique(tdat$sample_id)))
+    
+    isotopes <-  rep(isos$isotope,length(unique(tdat$sample_id)))
+      
+    tdat <- tdat[rep(1:dim(tdat)[1], length(isos$isotope)),] %>% 
+      arrange(sample_id) %>% 
+      mutate(isoprop = props, 
+             iso_ppm = numeric_ppm * isoprop,
+             isotope = isotopes)
+    
+  }
+  
+  return(tdat)
+}
+
+extended_elements <- lapply(elements, atom_splitter, dat = true_data, elem_info = elem_info) %>% 
+  bind_rows()
+
+extended_elements
+```
+#Merge data and constants into single dataframe
+```{r}
+#So first get everything in a single
+#merge the two df's based on common obervation known as isotope
+extended_elements=full_join(extended_elements,elem_info,by="isotope")
+#format a clean dataframe
+extended_elements=tbl_df(extended_elements)
+
+#ok! now we have a big clean data set in which to do cross math with!
+#BUT... need to add other constants like avogadro and sample age
+extended_elements=mutate(extended_elements, avogadro,sampleAge)
+
+datatable(extended_elements)
+```
+# Analyze data
+```{r}
+# Ok so the data is all there finally, now do some math across columns
+#filter entries that don't have isotope abundances since you can't so math on "NA's"
+
+extended_elements=extended_elements %>% 
+  filter(is.na(abundance)==FALSE ) %>% 
+  mutate(parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro) %>% 
+  as_data_frame()
+
+```
+#Calculate # of alpha decays given age of sample
+```{r}
+extended_elements=extended_elements %>% 
+  mutate(alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1))
+
+#Plot decays/sample
+extended_elements %>% 
+  ggplot(aes(x=sample_id,y=alpha_decays, color=isotope))+
+  geom_point()+
+  geom_smooth()+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  ggtitle("# of Alpha decays based on age of sample")+
+  ylab("# of alpha decays")
+```
+#Calculate alpha particle emitted over time given a U and Th concentration in sample
+```{r}
+extended_elements=extended_elements %>% 
+  mutate(alpha_particles = num_alpha_decays_in_chain*alpha_decays)
+#Plot alpha particles/decay
+extended_elements %>% 
+  ggplot(aes(x=alpha_particles,y=alpha_decays, color=isotope))+
+  geom_point()+
+  geom_smooth()+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  ggtitle("# of alpha particles vs alpha decays")+
+  xlab("# of alpha particles")+
+  ylab("# of alpha decays")
+```
+#Calculate # of 21Ne atoms produced from isotope decays due to age of sample
+This is the number of background 21ne in a sample due to the concentration of U and Th
+```{r}
+extended_elements=extended_elements %>% 
+  mutate(ne21_nucl_n_atoms = alpha_particles*ne21_nucleogenic_P_rate)
+
+extended_elements %>% 
+  ggplot(aes(x=ne21_nucl_n_atoms,y=numeric_ppm, color=isotope))+
+  geom_point()+
+  geom_smooth()+
+  ggtitle("Nucleogenic 21Ne vs Th & U concentration")+
+  xlab("Nucleogenic 21Ne (atoms)")+
+  ylab("Concentration (ppm)")
+
+#Try a histogram showing the porportion of each isotope per sample
+extended_elements %>% 
+  ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms,fill = isotope))+
+  geom_bar(stat = "identity")+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  ggtitle("Th & U fractions of Nucelogenic Neon by sample")+
+  xlab("")+
+  ylab("Nucleogenic 21Ne (atoms)")
+
+```
+#Plotting a dot for each sample and the amount of 21Ne in it, colored by the isotope
+```{r}
+extended_elements %>% 
+  ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms, color=isotope))+
+  geom_point(aes(shape = isotope))+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  ggtitle("Th & U fractions of Nucelogenic Neon by sample")+
+  xlab("")+
+  ylab("Nucleogenic 21Ne (atoms)")
+  #scale_y_log10()
+```
+#Calculate atoms per gram qtz
+```{r}
+extended_elements= extended_elements %>% 
+  mutate(ne21_atoms_per_gram = ne21_nucl_n_atoms/wtkg)
+
+
+```
+
+
+
+
+
+
