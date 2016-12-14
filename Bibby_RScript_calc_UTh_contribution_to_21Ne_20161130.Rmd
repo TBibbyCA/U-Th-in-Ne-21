@@ -20,12 +20,12 @@ library(DT)
 ```
 
 ##Read original data csv from Dan Morgan
-
 ```{r}
 my_data <- tbl_df(read.csv("~/Box Sync/Research/U-Th_in_Ne-21/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE)) %>% 
   rename(sample_id = ANALYTE, wtkg = WtKg)
-my_data
+datatable(my_data)
 ```
+
 ##Remove special characters from data and adjust headers
 ```{r}
 #set row names to sample ID's
@@ -47,13 +47,14 @@ true_data <- my_data %>%
 
 
 #Do any operation to all entries titled sample_id
-#this is an example
-true_data %>% 
-  group_by(sample_id) %>% 
-  summarise(domath=numeric_ppm[element=="U"]*numeric_ppm[element=="Th"],
-            num_elements = sum(is.na(numeric_ppm) == F))
-true_data
+# #this is an example
+# true_data %>% 
+#   group_by(sample_id) %>% 
+#   summarise(domath=numeric_ppm[element=="U"]*numeric_ppm[element=="Th"],
+#             num_elements = sum(is.na(numeric_ppm) == F))
+datatable(true_data)
 ```
+
 ##Create a dataframe of constants:
 ```{r}
 #Analytical Resuts
@@ -101,8 +102,9 @@ lambda = c(U238_alpha,U235_alpha,Th232_alpha)
 elem_info=data_frame(element=c("U","U","Th"),isotope=c("U238","U235","Th232"),abundance,
 mass,num_alpha_decays_in_chain,ne21_nucleogenic_P_rate,lambda)
 
-elem_info
+datatable(elem_info)
 ```
+
 ##Split elements into U and Th isotopes
 ```{r}
 #-----write a function to split elements into isotopes U235 and U238-------------
@@ -141,8 +143,9 @@ atom_splitter=function(i, dat, elem_info){
 extended_elements <- lapply(elements, atom_splitter, dat = true_data, elem_info = elem_info) %>% 
   bind_rows()
 
-extended_elements
+datatable(extended_elements)
 ```
+
 ##Merge data and constants into single dataframe
 ```{r}
 #So first get everything in a single
