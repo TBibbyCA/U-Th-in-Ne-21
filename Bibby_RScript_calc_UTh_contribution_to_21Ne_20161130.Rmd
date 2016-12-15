@@ -1,5 +1,7 @@
 ---
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 
@@ -19,14 +21,14 @@ library(stringr)
 library(DT)
 ```
 
-##Read original data csv from Dan Morgan
+Read original data csv from Dan Morgan
 ```{r}
-my_data <- tbl_df(read.csv("~/Box Sync/Research/U-Th_in_Ne-21/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE)) %>% 
+my_data <- tbl_df(read.csv("~/Box Sync/Research/U-Th_in_Ne-21/data_original/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE)) %>% 
   rename(sample_id = ANALYTE, wtkg = WtKg)
 datatable(my_data)
 ```
 
-##Remove special characters from data and adjust headers
+We need to remove special characters from data and adjust headers so every row is an observation and every column is a category
 ```{r}
 #set row names to sample ID's
 
@@ -45,17 +47,13 @@ true_data <- my_data %>%
          below_limit_ppm = str_detect(ppm,"<")) %>%
   arrange((sample_id)) 
 
-
-#Do any operation to all entries titled sample_id
-# #this is an example
-# true_data %>% 
-#   group_by(sample_id) %>% 
-#   summarise(domath=numeric_ppm[element=="U"]*numeric_ppm[element=="Th"],
-#             num_elements = sum(is.na(numeric_ppm) == F))
-datatable(true_data)
+true_data %>% 
+  arrange(sample_id) %>% 
+  datatable()
 ```
 
-##Create a dataframe of constants:
+Constants:
+These need to be double checked and confirmed with citeable online source.
 ```{r}
 #Analytical Resuts
 sampleAge = 100e6 #Ma
@@ -105,7 +103,8 @@ mass,num_alpha_decays_in_chain,ne21_nucleogenic_P_rate,lambda)
 datatable(elem_info)
 ```
 
-##Split elements into U and Th isotopes
+Separate U and Th into their respective isotopes:
+Coxx et al provides neon prodution rates as a function of U235, U238, and Th232. This means we need to normalize the measured ppm of U and Th to their respective abundances before proceeding. As an example, if our measured total U concentraion is 100 ppm, and the abundance of U235 is 1% and U238 is 99%, we expect that in our sample, of 100ppm, 1ppm is U235 and the remaining 99ppm is U238. These get summed at the end to calculate toal Ne21.
 ```{r}
 #-----write a function to split elements into isotopes U235 and U238-------------
 #so we can create a big ole data frame in which to do parrallel math across rows
@@ -143,10 +142,14 @@ atom_splitter=function(i, dat, elem_info){
 extended_elements <- lapply(elements, atom_splitter, dat = true_data, elem_info = elem_info) %>% 
   bind_rows()
 
-datatable(extended_elements)
+extended_elements %>% 
+  select(sample_id,element,isotope,isoprop,numeric_ppm,iso_ppm) %>%
+  filter(element %in%c("U","Th") ) %>% 
+  arrange(sample_id) %>% 
+  datatable()
 ```
 
-##Merge data and constants into single dataframe
+For simplicty and math sake we merge our data and constants into a single dataframe.
 ```{r}
 #So first get everything in a single
 #merge the two df's based on common obervation known as isotope
@@ -158,10 +161,16 @@ extended_elements=tbl_df(extended_elements)
 #BUT... need to add other constants like avogadro and sample age
 extended_elements=mutate(extended_elements, avogadro,sampleAge)
 
-datatable(extended_elements)
+extended_elements %>% 
+  arrange(sample_id) %>% 
+  datatable()
 ```
 
-#Analyze data
+##Now we're ready to do some calculations
+####Parent Atoms
+Calculate the number of original parent atoms of U and Th based on the measured concentration of each element.
+
+Formula: parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro)
 ```{r}
 # Ok so the data is all there finally, now do some math across columns
 #filter entries that don't have isotope abundances since you can't so math on "NA's"
@@ -170,10 +179,20 @@ extended_elements=extended_elements %>%
   filter(is.na(abundance)==FALSE ) %>% 
   mutate(parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro) %>% 
   as_data_frame()
-
+#Plot Parent atoms/sample
+extended_elements %>% 
+  ggplot(aes(x=sample_id,y=parent_atoms, color=isotope))+
+  geom_point()+
+  geom_smooth()+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  ggtitle("Parent atoms")+
+  ylab("Parent atoms (n)")
 ```
 
-##Calculate alpha decays given age of sample
+####Alpha decays
+How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of parent isotopes, and the 1/2 life of the isotope.
+
+Formula: alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1)
 ```{r}
 extended_elements=extended_elements %>% 
   mutate(alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1))
@@ -184,14 +203,19 @@ extended_elements %>%
   geom_point()+
   geom_smooth()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
-  ggtitle("# of Alpha decays based on age of sample")+
-  ylab("# of alpha decays")
+  ggtitle("Alpha Decays")+
+  ylab("Alpha decays (n)")
 ```
 
-##Calculate alpha particle emitted over time given a U and Th concentration in sample
+#### Alpha particles
+Since we know how many radioactive alpha decays have occured from the parent atom of each sample, we can calculate the number of alpha particles that have been emitted in the crystal lattice for the lifetime of the sample.This is important because it's the emission of an alpha particle which then interacts with an oxygen isotope in quartz to form 21Ne. The number of ejected alpha particles is based on the number of alpha decays that occur in the parent isotope during the decay process. If you look at the Thorium series decay chain (or decay path), you'll see that there are 6 alpha particles emited.[https://en.wikipedia.org/wiki/Decay_chain]
+Thus, we are just multiplying the number of radioactive decays that have occurred times the number of alpha particles emitted for each radioactive decay to get the total number of alpha particles that can smash into oxygen isotopes to form 21Ne.
+
+Formula:alpha_particles = num_alpha_decays_in_chain*alpha_decays
 ```{r}
 extended_elements=extended_elements %>% 
   mutate(alpha_particles = num_alpha_decays_in_chain*alpha_decays)
+
 #Plot alpha particles/decay
 extended_elements %>% 
   ggplot(aes(x=alpha_particles,y=alpha_decays, color=isotope))+
@@ -203,21 +227,32 @@ extended_elements %>%
   ylab("# of alpha decays")
 ```
 
-##Calculate 21Ne atoms produced from isotope decays due to age of sample
-This is the number of background 21ne in a sample due to the concentration of U and Th
+#### Neon 21 from normal radioactive decay
+So how much 21Ne is produced in-situ from normal radioactive decay of nearby U and Th? We are now relying on the total number of alpha particles we just calculated and the experimental results of Coxx et al for the production rate of Neon in quartz. Coxx et al blasted some pure quartz standards with an ion source and in their paper provide production rates in Table 6. So again we just need to multiply the number of total alpha particles ejected from U and Th by the "alpha based production rate or nucleogenic production rate" of 21Ne (atoms/alpha particle).
+
+Formula: ne21_nucl_n_atoms = alpha_particles*ne21_nucleogenic_P_rate
+
+
+
 ```{r}
 extended_elements=extended_elements %>% 
   mutate(ne21_nucl_n_atoms = alpha_particles*ne21_nucleogenic_P_rate)
 
+#Plot dots
 extended_elements %>% 
-  ggplot(aes(x=ne21_nucl_n_atoms,y=numeric_ppm, color=isotope))+
+  ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope))+
   geom_point()+
   geom_smooth()+
   ggtitle("Nucleogenic 21Ne vs Th & U concentration")+
-  xlab("Nucleogenic 21Ne (atoms)")+
-  ylab("Concentration (ppm)")
+  ylab("Nucleogenic 21Ne (atoms)")+
+  xlab("Concentration (ppm)")
+```
+Above: What are we learning here? As expected, the greater the concentration of U and Th, the greater the concentration of 21Ne. In the U series, U238 is the dominant producer of 21Ne but it is also 99% abundant (as compared to U235). There's something else here, but I can't put my finger on it. I go into it below.
 
-#Try a histogram showing the porportion of each isotope per sample
+
+
+```{r}
+#Plot histogram showing the porportion of each isotope per sample
 extended_elements %>% 
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms,fill = isotope))+
   geom_bar(stat = "identity")+
@@ -227,7 +262,27 @@ extended_elements %>%
   ylab("Nucleogenic 21Ne (atoms)")
 
 ```
-Same thing as above just dots
+Above: This histogram gives a clear picture of the impact of each element. But as I look at it closer there's something funny going on. On first pass, Th makes up over half of the nucleogenic neon. But in the pebble samples, U is responsible for the bulk of neon. Not sure why the ratio of Th:U is not the same for all samples. Maybe it depends on the amount (mass) of the sample measured? Or maybe it's a function of the concentration (ppm) in each sample?
+
+We can compare this relationship of ppm to concentration using the previous plot. Maybe it's a slope issue? U has a steeper slope so at lower concentrations (ppm) it produces more neon than Th?
+
+Lets do the same plot as above but highlight a few choice samples
+
+```{r}
+#Plot dots and highlight a couple samples with their names
+extended_elements %>%
+  filter(sample_id %in% c("10-MC-BR-19","10-MC-ERR-34","15-ML-18-Peb") ) %>% 
+  ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope,shape = sample_id,label = sample_id))+
+  #geom_text(check_overlap = FALSE)+
+  geom_point()+
+  geom_smooth()+
+  ggtitle("Nucleogenic 21Ne vs Th & U concentration")+
+  ylab("Nucleogenic 21Ne (atoms)")+
+  xlab("Concentration (ppm)")
+  
+```
+
+
 ```{r}
 extended_elements %>% 
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms, color=isotope))+
@@ -238,8 +293,11 @@ extended_elements %>%
   ylab("Nucleogenic 21Ne (atoms)")
   #scale_y_log10()
 ```
+Same thing as above just dots
 
-##Calculate atoms per gram qtz
+
+
+####Calculate atoms per gram qtz
 ```{r}
 extended_elements= extended_elements %>% 
   mutate(ne21_atoms_per_gram = ne21_nucl_n_atoms/wtkg)
@@ -247,7 +305,16 @@ extended_elements= extended_elements %>%
 
 ```
 
+##Import measured 21Ne concentrations from BGC
+File named: Morgan_MonoBasin_Pebbles_Ne21_clean.csv 
+```{r}
+bgc_data <- tbl_df(read.csv("~/Box Sync/Research/U-Th_in_Ne-21/data_cleaned_b4_import/Morgan_MonoBasin_Pebbles_Ne21_clean.csv" , stringsAsFactors = FALSE)) 
 
+colnames(bgc_data) <- tolower(colnames(bgc_data))
+
+datatable(bgc_data)
+```
+##
 
 
 
