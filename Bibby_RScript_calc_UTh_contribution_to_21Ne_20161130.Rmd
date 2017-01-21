@@ -3,10 +3,6 @@
 knitr::opts_chunk$set(echo=FALSE,warning = FALSE)
 ```
 
-```{r}
-#Remove all lists
-rm(list=ls())
-```
 #Document Summary:
 To import U and Th data from Dan, calculate the background 21Ne expected based on those concentrations, and compare it to measured concentrations from NGMS
 ```{r, message=FALSE, }
@@ -23,29 +19,13 @@ library(ggplot2)
 Read original data csv from Dan Morgan
 
 ```{r}
-#Open path on Mac
-my_data <- tbl_df(read.csv("~/Box Sync/Research/!active_projects/U-Th_in_Ne-21/data_original/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE)) %>%
-  rename(sample_id = ANALYTE, wtkg = WtKg)
+#Open csv file path
+my_data <- read.csv("~/Box Sync/Research/!active_projects/U-Th_in_Ne-21/data_original/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE) %>%
+as_data_frame() %>%
+rename(sample_id = ANALYTE, wtkg = WtKg)
 datatable(my_data)
 
-# #Open path on PC:
-# my_data <- tbl_df(read.csv("C:\\Users\\Geomorph\\Box Sync\\Research\\!active_projects\\U-Th_in_Ne-21\\data_original\\GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE)) %>% 
-#   rename(sample_id = ANALYTE, wtkg = WtKg)
-# datatable(my_data)
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-##Import measured 21Ne concentrations from BGC
-#File named: Morgan_MonoBasin_Pebbles_Ne21_clean.csv 
-
-# Load file path name on mac
-bgc_data <- tbl_df(read.csv("~/Box Sync/Research/!active_projects/U-Th_in_Ne-21/data_cleaned_b4_import/Morgan_MonoBasin_Pebbles_Ne21_clean.csv" , stringsAsFactors = FALSE))
-
-## Load file path name on PC
-# bgc_data <- tbl_df(read.csv("C:\\Users\\Geomorph\\Box Sync\\Research\\!active_projects\\U-Th_in_Ne-21\\data_cleaned_b4_import\\Morgan_MonoBasin_Pebbles_Ne21_clean.csv" , stringsAsFactors = FALSE)) 
-
-#create column names and output a data table
-colnames(bgc_data) <- tolower(colnames(bgc_data))
-datatable(bgc_data)
 ```
 
 We need to remove special characters from data and adjust headers so every row is an observation and every column is a category
@@ -177,7 +157,9 @@ For simplicty and math sake we merge our data and constants into a single datafr
 ```{r}
 #So first get everything in a single
 #merge the two df's based on common obervation known as isotope
-extended_elements=full_join(extended_elements,elem_info,by="isotope")
+extended_elements=extended_elements %>%
+full_join(elem_info,by="isotope")
+
 #format a clean dataframe
 extended_elements=tbl_df(extended_elements)
 
