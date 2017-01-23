@@ -16,21 +16,32 @@ library(ggplot2)
 ```
 
 #Calculate background 21Ne from U and Th concentrations in quartz
-Read original data csv from Dan Morgan
+###Read geochemical data csv from Dan Morgan
 
 ```{r}
-#Open csv file path
+#Open geochemistry data from Dan .csv file path
 my_data <- read.csv("~/Box Sync/Research/!active_projects/U-Th_in_Ne-21/data_original/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE) %>%
 as_data_frame() %>%
 rename(sample_id = ANALYTE, wtkg = WtKg)
 datatable(my_data)
+```
+
+###Read noble gas data csv from Dan Morgan
+
+```{r}
+#Open noble gas results from Dan
+noble_gas_data <- read.csv("~/Box Sync/Research/!active_projects/U-Th_in_Ne-21/data_cleaned_b4_import/Ne21_OV_MC_Aug2015_final_clean.csv" , stringsAsFactors = FALSE) %>%
+as_data_frame()
+datatable(noble_gas_data)
 
 
 ```
 
-We need to remove special characters from data and adjust headers so every row is an observation and every column is a category
+Clean up the geochemistry datatable. (remove special characters)
 
 ```{r}
+
+#We need to remove special characters from data and adjust headers #so every row is an observation and every column is a category
 #set row names to sample ID's
 
 #get meta data from csv cells
@@ -48,12 +59,11 @@ true_data <- my_data %>%
          below_limit_ppm = str_detect(ppm,"<")) %>%
   arrange((sample_id)) 
 
-true_data %>% 
-  arrange(sample_id) %>% 
-  datatable()
+true_data %>%
+  arrange(sample_id)
 ```
 
-Constants:
+###Add Constants:
 These need to be double checked and confirmed with citeable online source.
 
 ```{r}
@@ -148,8 +158,7 @@ extended_elements <- lapply(elements, atom_splitter, dat = true_data, elem_info 
 extended_elements %>% 
   select(sample_id,element,isotope,isoprop,numeric_ppm,iso_ppm) %>%
   filter(element %in%c("U","Th") ) %>% 
-  arrange(sample_id) %>% 
-  datatable()
+  arrange(sample_id)
 ```
 
 For simplicty and math sake we merge our data and constants into a single dataframe.
@@ -168,8 +177,7 @@ extended_elements=tbl_df(extended_elements)
 extended_elements=mutate(extended_elements, avogadro,sampleAge)
 
 extended_elements %>% 
-  arrange(sample_id) %>% 
-  datatable()
+  arrange(sample_id) 
 ```
 
 ##Now we're ready to do some calculations
@@ -226,7 +234,6 @@ extended_elements=extended_elements %>%
 extended_elements %>% 
   ggplot(aes(x=alpha_particles,y=alpha_decays, color=isotope))+
   geom_point()+
-  geom_smooth()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
   ggtitle("# of alpha particles vs alpha decays")+
   xlab("# of alpha particles")+
@@ -281,7 +288,6 @@ extended_elements %>%
   ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope,shape = sample_id,label = sample_id))+
   #geom_text(check_overlap = FALSE)+
   geom_point()+
-  geom_smooth()+
   ggtitle("Nucleogenic 21Ne vs Th & U concentration")+
   ylab("Nucleogenic 21Ne (atoms)")+
   xlab("Concentration (ppm)")
@@ -290,6 +296,7 @@ extended_elements %>%
 
 
 ```{r}
+#Plot Th and U as dots instead or bar graph as above
 extended_elements %>% 
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms, color=isotope))+
   geom_point(aes(shape = isotope))+
@@ -306,13 +313,20 @@ Same thing as above just dots
 ####Calculate atoms per gram qtz
 ```{r}
 extended_elements= extended_elements %>% 
-  mutate(ne21_atoms_per_gram = ne21_nucl_n_atoms/wtkg)
-
+  mutate(ne21_atoms_per_gram = ne21_nucl_n_atoms/wtkg*1000)
+#Plot atoms/grm
+extended_elements %>% 
+  ggplot(aes(x=sample_id,y=ne21_atoms_per_gram, color=isotope))+
+  geom_point(aes(shape = isotope))+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  ggtitle("Th & U atoms per gram")+
+  xlab("")+
+  ylab("Nucleogenic 21Ne (atoms/gram)")
 
 ```
 
 
-##
+### Compare the noble gas measurement to in-situ
 
 
 
