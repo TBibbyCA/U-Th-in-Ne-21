@@ -20,7 +20,7 @@ library(ggplot2)
 
 ```{r}
 #Open geochemistry data from Dan .csv file path
-my_data <- read.csv("~/Box Sync/Research/!active_projects/U-Th_in_Ne-21/data_original/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE) %>%
+my_data <- read.csv("~/GitHub/U-Th-in-Ne-21/data/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE) %>%
 as_data_frame() %>%
 rename(sample_id = ANALYTE, wtkg = WtKg)
 datatable(my_data)
@@ -30,7 +30,7 @@ datatable(my_data)
 
 ```{r}
 #Open noble gas results from Dan
-noble_gas_data <- read.csv("~/Box Sync/Research/!active_projects/U-Th_in_Ne-21/data_cleaned_b4_import/Ne21_OV_MC_Aug2015_final_clean.csv" , stringsAsFactors = FALSE) %>%
+noble_gas_data <- read.csv("~/GitHub/U-Th-in-Ne-21/data/Ne21_OV_MC_Aug2015_final_clean.csv" , stringsAsFactors = FALSE) %>%
 as_data_frame()
 datatable(noble_gas_data)
 
