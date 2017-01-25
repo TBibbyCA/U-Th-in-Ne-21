@@ -162,6 +162,17 @@ extended_geochem_data %>%
   arrange(sample_id)
 ```
 
+### Plot the cocentration of U and Th
+```{r}
+extended_geochem_data %>%
+  ggplot(aes(x=sample_id,y=iso_ppm,fill = isotope))+
+  geom_bar(stat = "identity")+
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))+
+  ggtitle("Concentration of U and Th")+
+  xlab("")+
+  ylab("concentration (ppm)")
+```
+
 ### Merge geochem_data and elem_info into a single dataframe called: extended_geochem_data
 
 ```{r}
@@ -328,19 +339,29 @@ extended_geochem_data %>%
 
 
 ##3: Compare measured in-situ 21Ne to contributions from U and Th
+Filter for Ong Valley Samples
 
 ```{r}
 # 1st sum the atoms/gram data predicted by Coxx et al calculations
 extended_geochem_data %>% 
   group_by(sample_id) %>% 
-  summarise(sum(ne21_atoms_per_gram))
+  mutate(ne21_M_atm_per_gram =ne21_atoms_per_gram/1E6) %>% 
+  summarise(sum(ne21_M_atm_per_gram)) %>% 
+  filter(grepl("OV",sample_id))
 
 # 2nd look at the atoms/gram from noble gas data
 noble_gas_data %>% 
-  select(sample_id, Total.cosmogenic.Ne.21...Matoms.g.)
+  select(sample_id, Total.cosmogenic.Ne.21...Matoms.g.) %>% 
+  filter(!is.na(sample_id)) %>% 
+  filter(grepl("OV",sample_id))
   
 
 ```
 
+### Merge two data frames (as above) using pipe operators
+
+```{r}
+
+```
 
 
