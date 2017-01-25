@@ -31,7 +31,8 @@ geochem_data
 ```{r}
 #Open noble gas results from Dan
 noble_gas_data <- read.csv("~/GitHub/U-Th-in-Ne-21/data/Ne21_OV_MC_Aug2015_final_clean.csv" , stringsAsFactors = FALSE) %>%
-  as_data_frame()
+  as_data_frame() %>% 
+  rename(sample_id = Sample.name)
 noble_gas_data
 
 ```
@@ -48,8 +49,8 @@ header_names <- geochem_data$sample_id[1:3]
 meta = geochem_data %>% 
   filter(sample_id %in% header_names)
 
-# take geochem_data, call it true_data
-true_data <- geochem_data %>% 
+# take geochem_data and convert text field to numeric fields
+geochem_data <- geochem_data %>% 
   filter(!(sample_id %in% header_names)) %>% 
   as_data_frame() %>% 
   gather(element, ppm, -sample_id,-wtkg) %>% 
@@ -58,7 +59,7 @@ true_data <- geochem_data %>%
          below_limit_ppm = str_detect(ppm,"<")) %>%
   arrange((sample_id)) 
 
-true_data %>%
+geochem_data %>%
   arrange(sample_id)
 ```
 
@@ -122,7 +123,7 @@ Coxx et al provides neon prodution rates as a function of U235, U238, and Th232.
 #-----write a function to split elements into isotopes U235 and U238-------------
 #so we can create a big ole data frame in which to do parrallel math across rows
 
-elements <- unique(true_data$element)
+elements <- unique(geochem_data$element)
 
 atom_splitter=function(i, dat, elem_info){
   
@@ -152,31 +153,31 @@ atom_splitter=function(i, dat, elem_info){
   return(tdat)
 }
 
-total_data <- lapply(elements, atom_splitter, dat = true_data, elem_info = elem_info) %>% 
+extended_geochem_data <- lapply(elements, atom_splitter, dat = geochem_data, elem_info = elem_info) %>% 
   bind_rows()
 
-total_data %>% 
+extended_geochem_data %>% 
   select(sample_id,element,isotope,isoprop,numeric_ppm,iso_ppm) %>%
   filter(element %in%c("U","Th") ) %>% 
   arrange(sample_id)
 ```
 
-### Merge geochem_data and elem_info into a single dataframe called: total_data
+### Merge geochem_data and elem_info into a single dataframe called: extended_geochem_data
 
 ```{r}
 #So first get everything in a single
 #merge the two df's based on common obervation known as isotope
-total_data=total_data %>%
+extended_geochem_data=extended_geochem_data %>%
 full_join(elem_info,by="isotope")
 
 #format a clean dataframe
-total_data=tbl_df(total_data)
+extended_geochem_data=tbl_df(extended_geochem_data)
 
 #ok! now we have a big clean data set in which to do cross math with!
 #BUT... need to add other constants like avogadro and sample age
-total_data=mutate(total_data, avogadro,sampleAge)
+extended_geochem_data=mutate(extended_geochem_data, avogadro,sampleAge)
 
-total_data %>% 
+extended_geochem_data %>% 
   arrange(sample_id) 
 ```
 
@@ -190,13 +191,13 @@ Formula: parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro)
 # Ok so the data is all there finally, now do some math across columns
 #filter entries that don't have isotope abundances since you can't so math on "NA's"
 
-total_data=total_data %>% 
+extended_geochem_data=extended_geochem_data %>% 
   filter(is.na(abundance)==FALSE ) %>% 
   mutate(parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro) %>% 
   as_data_frame()
 
 #Plot Parent atoms/sample
-total_data %>% 
+extended_geochem_data %>% 
   ggplot(aes(x=sample_id,y=parent_atoms, color=isotope))+
   geom_point()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -209,11 +210,11 @@ How many radioactive alpha decays have occurred during the lifetime of the sampl
 
 Formula: alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1)
 ```{r}
-total_data=total_data %>% 
+extended_geochem_data=extended_geochem_data %>% 
   mutate(alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1))
 
 #Plot decays/sample
-total_data %>% 
+extended_geochem_data %>% 
   ggplot(aes(x=sample_id,y=alpha_decays, color=isotope))+
   geom_point()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -227,11 +228,11 @@ Thus, we are just multiplying the number of radioactive decays that have occurre
 
 Formula:alpha_particles = num_alpha_decays_in_chain*alpha_decays
 ```{r}
-total_data=total_data %>% 
+extended_geochem_data=extended_geochem_data %>% 
   mutate(alpha_particles = num_alpha_decays_in_chain*alpha_decays)
 
 #Plot alpha particles/decay
-total_data %>% 
+extended_geochem_data %>% 
   ggplot(aes(x=alpha_particles,y=alpha_decays, color=isotope))+
   geom_point()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -248,11 +249,11 @@ Formula: ne21_nucl_n_atoms = alpha_particles*ne21_nucleogenic_P_rate
 
 
 ```{r}
-total_data=total_data %>% 
+extended_geochem_data=extended_geochem_data %>% 
   mutate(ne21_nucl_n_atoms = alpha_particles*ne21_nucleogenic_P_rate)
 
 #Plot dots
-total_data %>% 
+extended_geochem_data %>% 
   ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope))+
   geom_point()+
   geom_smooth()+
@@ -266,7 +267,7 @@ Above: What are we learning here? As expected, the greater the concentration of 
 
 ```{r}
 #Plot histogram showing the porportion of each isotope per sample
-total_data %>% 
+extended_geochem_data %>% 
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms,fill = isotope))+
   geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -283,7 +284,7 @@ Lets do the same plot as above but highlight a few choice samples
 
 ```{r}
 #Plot dots and highlight a couple samples with their names
-total_data %>%
+extended_geochem_data %>%
   filter(sample_id %in% c("10-MC-BR-19","10-MC-ERR-34","15-ML-18-Peb") ) %>% 
   ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope,shape = sample_id,label = sample_id))+
   #geom_text(check_overlap = FALSE)+
@@ -297,7 +298,7 @@ total_data %>%
 
 ```{r}
 #Plot Th and U as dots instead or bar graph as above
-total_data %>% 
+extended_geochem_data %>% 
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms, color=isotope))+
   geom_point(aes(shape = isotope))+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -312,10 +313,10 @@ Same thing as above just points instead of bargraph
 
 ####Atoms per gram qtz
 ```{r}
-total_data= total_data %>% 
+extended_geochem_data= extended_geochem_data %>% 
   mutate(ne21_atoms_per_gram = ne21_nucl_n_atoms/wtkg*1000)
 #Plot atoms/grm
-total_data %>% 
+extended_geochem_data %>% 
   ggplot(aes(x=sample_id,y=ne21_atoms_per_gram, color=isotope))+
   geom_point(aes(shape = isotope))+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -329,6 +330,15 @@ total_data %>%
 ##3: Compare measured in-situ 21Ne to contributions from U and Th
 
 ```{r}
+# 1st sum the atoms/gram data predicted by Coxx et al calculations
+extended_geochem_data %>% 
+  group_by(sample_id) %>% 
+  summarise(sum(ne21_atoms_per_gram))
+
+# 2nd look at the atoms/gram from noble gas data
+noble_gas_data %>% 
+  select(sample_id, Total.cosmogenic.Ne.21...Matoms.g.)
+  
 
 ```
 
