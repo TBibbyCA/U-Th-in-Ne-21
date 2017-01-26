@@ -158,8 +158,9 @@ extended_geochem_data <- lapply(elements, atom_splitter, dat = geochem_data, ele
 
 extended_geochem_data %>% 
   select(sample_id,element,isotope,isoprop,numeric_ppm,iso_ppm) %>%
-  filter(element %in%c("U","Th") ) %>% 
-  arrange(sample_id)
+  filter(element %in%c("U","Th") ) %>%
+  arrange(sample_id) %>% 
+  datatable()
 ```
 
 ### Plot the cocentration of U and Th
@@ -206,8 +207,15 @@ Formula: parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro)
 
 extended_geochem_data=extended_geochem_data %>% 
   filter(is.na(abundance)==FALSE ) %>% 
-  mutate(parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro) %>% 
+  mutate(parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro) %>%
   as_data_frame()
+
+#Show results in data table
+extended_geochem_data %>%
+  select(sample_id,numeric_ppm,isotope,parent_atoms) %>%
+  filter(grepl("OV",sample_id)) %>%
+  arrange(sample_id) %>% 
+  datatable() 
 
 #Plot Parent atoms/sample
 extended_geochem_data %>%
@@ -227,6 +235,13 @@ Formula: alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1)
 extended_geochem_data=extended_geochem_data %>% 
   mutate(alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1))
 
+#Show results in data table
+extended_geochem_data %>%
+  select(sample_id,numeric_ppm,isotope,alpha_decays) %>%
+  filter(grepl("OV",sample_id)) %>%
+  arrange(sample_id) %>% 
+  datatable() 
+
 #Plot decays/sample
 extended_geochem_data %>%
   filter(grepl("OV",sample_id)) %>%
@@ -245,6 +260,13 @@ Formula:alpha_particles = num_alpha_decays_in_chain*alpha_decays
 ```{r}
 extended_geochem_data=extended_geochem_data %>% 
   mutate(alpha_particles = num_alpha_decays_in_chain*alpha_decays)
+
+#Show results in data table
+extended_geochem_data %>%
+  select(sample_id,numeric_ppm,isotope,alpha_particles) %>%
+  filter(grepl("OV",sample_id)) %>%
+  arrange(sample_id) %>% 
+  datatable() 
 
 #Plot alpha particles/decay
 extended_geochem_data %>%
@@ -268,12 +290,19 @@ Formula: ne21_nucl_n_atoms = alpha_particles*ne21_nucleogenic_P_rate
 extended_geochem_data=extended_geochem_data %>% 
   mutate(ne21_nucl_n_atoms = alpha_particles*ne21_nucleogenic_P_rate)
 
+#Show results in data table
+extended_geochem_data %>%
+  select(sample_id,numeric_ppm,isotope,ne21_nucl_n_atoms) %>%
+  filter(grepl("OV",sample_id)) %>%
+  arrange(sample_id) %>% 
+  datatable() 
+
 #Plot dots
 extended_geochem_data %>%
     arrange(numeric_ppm) %>% 
   ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope))+
   geom_point()+
-  geom_smooth()+
+  geom_smooth(method = 'loess')+
   ggtitle("Nucleogenic 21Ne vs Th & U concentration")+
   ylab("Nucleogenic 21Ne (atoms)")+
   xlab("Concentration (ppm)")
@@ -298,7 +327,7 @@ Above: This histogram gives a clear picture of the impact of each element. But a
 
 We can compare this relationship of ppm to concentration using the previous plot. Maybe it's a slope issue? U has a steeper slope so at lower concentrations (ppm) it produces more neon than Th?
 
-Lets do the same plot as above but highlight samples from Ong Valley
+###Lets do the same plot as above but highlight samples from Ong Valley
 
 ```{r}
 #Plot dots and highlight a couple samples with their names
@@ -336,6 +365,13 @@ Same thing as above just points instead of bargraph
 extended_geochem_data= extended_geochem_data %>% 
   mutate(ne21_atoms_per_gram = ne21_nucl_n_atoms/wtkg*1000)
 
+#Show results in data table
+extended_geochem_data %>%
+  select(sample_id,numeric_ppm,isotope,ne21_atoms_per_gram) %>%
+  filter(grepl("OV",sample_id)) %>%
+  arrange(sample_id) %>% 
+  datatable() 
+
 #Plot atoms/grm
 extended_geochem_data %>%
   filter(grepl("OV",sample_id)) %>%
@@ -350,21 +386,27 @@ extended_geochem_data %>%
 
 
 ##3: Compare measured in-situ 21Ne to contributions from U and Th
-Filter for Ong Valley Samples
 
+Total nucleogenic 21Ne per sample calculated from Coxx et al. (add Th and U atoms/gram)
+matches spreedsheet calculations
 ```{r}
 # 1st sum the atoms/gram data predicted by Coxx et al calculations
-extended_geochem_data %>% 
-  group_by(sample_id) %>% 
-  mutate(ne21_M_atm_per_gram =ne21_atoms_per_gram/1E6) %>% 
-  summarise(sum(ne21_M_atm_per_gram)) %>% 
-  filter(grepl("OV",sample_id))
+extended_geochem_data %>%
+  group_by(sample_id) %>%
+  summarise(sum(ne21_atoms_per_gram)) %>%
+  filter(grepl("OV",sample_id)) %>%
+  arrange(sample_id) %>%
+  datatable()
+```
 
+Total measured 21Ne from BGC
+```{r}
 # 2nd look at the atoms/gram from noble gas data
 noble_gas_data %>% 
   select(sample_id, Total.cosmogenic.Ne.21...Matoms.g.) %>% 
   filter(!is.na(sample_id)) %>% 
-  filter(grepl("OV",sample_id))
+  filter(grepl("OV",sample_id)) %>% 
+  datatable()
   
 
 ```
@@ -372,24 +414,27 @@ noble_gas_data %>%
 ### Merge two data frames as broken down above so we can compare predicted vs measued Ne21
 
 ```{r}
-
+# sum and calculate Matoms
 # 1st sum the atoms/gram data predicted by Coxx et al calculations
-x=extended_geochem_data %>% 
-  group_by(sample_id) %>% 
-  mutate(ne21_M_atm_per_gram =ne21_atoms_per_gram/1E6) %>% 
-  summarise(sum(ne21_M_atm_per_gram)) %>% 
+x=extended_geochem_data %>%
+  group_by(sample_id) %>%
+  summarise((sum(ne21_atoms_per_gram)/1E6)) %>%
   filter(grepl("OV",sample_id))
+  datatable(x)
 
 # 2nd look at the atoms/gram from noble gas data
 y=noble_gas_data %>% 
-  select(sample_id, Total.cosmogenic.Ne.21...Matoms.g.) %>% 
+  select(sample_id, Matoms.g) %>% 
   filter(!is.na(sample_id)) %>% 
   filter(grepl("OV",sample_id))
 
+#join the two datatables together
 full_join(x,y,by="sample_id") %>% 
-  arrange(sample_id) %>% 
+  arrange(sample_id) %>%
   datatable()
+  
+
 
 ```
 
-
+There's some major discrepencies goign on here.. (above)
