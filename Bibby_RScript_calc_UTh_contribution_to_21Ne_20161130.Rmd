@@ -165,6 +165,8 @@ extended_geochem_data %>%
 ### Plot the cocentration of U and Th
 ```{r}
 extended_geochem_data %>%
+  filter(grepl("OV",sample_id)) %>% 
+  filter(!is.na(isotope)) %>% 
   ggplot(aes(x=sample_id,y=iso_ppm,fill = isotope))+
   geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -208,7 +210,8 @@ extended_geochem_data=extended_geochem_data %>%
   as_data_frame()
 
 #Plot Parent atoms/sample
-extended_geochem_data %>% 
+extended_geochem_data %>%
+  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=parent_atoms, color=isotope))+
   geom_point()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -225,7 +228,8 @@ extended_geochem_data=extended_geochem_data %>%
   mutate(alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1))
 
 #Plot decays/sample
-extended_geochem_data %>% 
+extended_geochem_data %>%
+  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=alpha_decays, color=isotope))+
   geom_point()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -243,7 +247,8 @@ extended_geochem_data=extended_geochem_data %>%
   mutate(alpha_particles = num_alpha_decays_in_chain*alpha_decays)
 
 #Plot alpha particles/decay
-extended_geochem_data %>% 
+extended_geochem_data %>%
+  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=alpha_particles,y=alpha_decays, color=isotope))+
   geom_point()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -264,7 +269,8 @@ extended_geochem_data=extended_geochem_data %>%
   mutate(ne21_nucl_n_atoms = alpha_particles*ne21_nucleogenic_P_rate)
 
 #Plot dots
-extended_geochem_data %>% 
+extended_geochem_data %>%
+    arrange(numeric_ppm) %>% 
   ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope))+
   geom_point()+
   geom_smooth()+
@@ -278,7 +284,8 @@ Above: What are we learning here? As expected, the greater the concentration of 
 
 ```{r}
 #Plot histogram showing the porportion of each isotope per sample
-extended_geochem_data %>% 
+extended_geochem_data %>%
+  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms,fill = isotope))+
   geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -291,15 +298,16 @@ Above: This histogram gives a clear picture of the impact of each element. But a
 
 We can compare this relationship of ppm to concentration using the previous plot. Maybe it's a slope issue? U has a steeper slope so at lower concentrations (ppm) it produces more neon than Th?
 
-Lets do the same plot as above but highlight a few choice samples
+Lets do the same plot as above but highlight samples from Ong Valley
 
 ```{r}
 #Plot dots and highlight a couple samples with their names
 extended_geochem_data %>%
-  filter(sample_id %in% c("10-MC-BR-19","10-MC-ERR-34","15-ML-18-Peb") ) %>% 
-  ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope,shape = sample_id,label = sample_id))+
-  #geom_text(check_overlap = FALSE)+
+  arrange(numeric_ppm) %>%
+  filter(grepl("OV",sample_id)) %>%
+  ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope))+
   geom_point()+
+  geom_smooth(method = 'loess')+
   ggtitle("Nucleogenic 21Ne vs Th & U concentration")+
   ylab("Nucleogenic 21Ne (atoms)")+
   xlab("Concentration (ppm)")
@@ -309,7 +317,8 @@ extended_geochem_data %>%
 
 ```{r}
 #Plot Th and U as dots instead or bar graph as above
-extended_geochem_data %>% 
+extended_geochem_data %>%
+  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms, color=isotope))+
   geom_point(aes(shape = isotope))+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -322,12 +331,14 @@ Same thing as above just points instead of bargraph
 
 
 
-####Atoms per gram qtz
+####Calculate atoms per gram qtz
 ```{r}
 extended_geochem_data= extended_geochem_data %>% 
   mutate(ne21_atoms_per_gram = ne21_nucl_n_atoms/wtkg*1000)
+
 #Plot atoms/grm
-extended_geochem_data %>% 
+extended_geochem_data %>%
+  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=ne21_atoms_per_gram, color=isotope))+
   geom_point(aes(shape = isotope))+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -358,9 +369,26 @@ noble_gas_data %>%
 
 ```
 
-### Merge two data frames (as above) using pipe operators
+### Merge two data frames as broken down above so we can compare predicted vs measued Ne21
 
 ```{r}
+
+# 1st sum the atoms/gram data predicted by Coxx et al calculations
+x=extended_geochem_data %>% 
+  group_by(sample_id) %>% 
+  mutate(ne21_M_atm_per_gram =ne21_atoms_per_gram/1E6) %>% 
+  summarise(sum(ne21_M_atm_per_gram)) %>% 
+  filter(grepl("OV",sample_id))
+
+# 2nd look at the atoms/gram from noble gas data
+y=noble_gas_data %>% 
+  select(sample_id, Total.cosmogenic.Ne.21...Matoms.g.) %>% 
+  filter(!is.na(sample_id)) %>% 
+  filter(grepl("OV",sample_id))
+
+full_join(x,y,by="sample_id") %>% 
+  arrange(sample_id) %>% 
+  datatable()
 
 ```
 
