@@ -1,3 +1,8 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
 ```{r setup,include=FALSE}
 #supress written code from displaying in html document
 knitr::opts_chunk$set(echo=FALSE,warning = FALSE)
