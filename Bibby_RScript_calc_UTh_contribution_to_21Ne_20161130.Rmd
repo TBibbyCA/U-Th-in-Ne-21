@@ -20,13 +20,18 @@ library(knitr)
 library(stringi)
 library(ggplot2)
 ```
+##1st: Specify site abbreviation of interest: 
+ie. OV, MC, ML, etc.
+```{r}
+site_location="OV"
+```
 
 ##1st: Organize Data
 ###Read geochemical data csv from Dan Morgan
 
 ```{r}
 #Open geochemistry data from Dan .csv file path
-geochem_data <- read.csv("~/GitHub/U-Th-in-Ne-21/data/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE) %>%
+geochem_data <- read.csv("~/Box\ Sync/Bibby_UCSB_box/Research/Antarctica/Ong_Valley_Moraine_Canyon/U-Th_in_Ne-21/data_original/data_dirty/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE) %>%
 as_data_frame() %>%
 rename(sample_id = ANALYTE, wtkg = WtKg)
 geochem_data
@@ -36,9 +41,10 @@ geochem_data
 
 ```{r}
 #Open noble gas results from Dan
-noble_gas_data <- read.csv("~/GitHub/U-Th-in-Ne-21/data/Ne21_OV_MC_Aug2015_final_clean.csv" , stringsAsFactors = FALSE) %>%
+noble_gas_data <- read.csv("~/Box\ Sync/Bibby_UCSB_box/Research/Antarctica/Ong_Valley_Moraine_Canyon/U-Th_in_Ne-21/data_original/data_cleaned/Ne21_OV_MC_Aug2015_final_clean.csv" , stringsAsFactors = FALSE) %>%
   as_data_frame() %>% 
-  rename(sample_id = Sample.name)
+  rename(sample_id = Sample.name) %>% 
+  filter(grepl(site_location,sample_id))
 noble_gas_data
 
 ```
@@ -63,7 +69,8 @@ geochem_data <- geochem_data %>%
   mutate(numeric_ppm = as.numeric(ppm),
          wtkg = as.numeric(wtkg), 
          below_limit_ppm = str_detect(ppm,"<")) %>%
-  arrange((sample_id)) 
+  arrange((sample_id)) %>% 
+  filter(grepl(site_location,sample_id)) 
 
 geochem_data %>%
   arrange(sample_id)
@@ -74,7 +81,8 @@ These need to be double checked and confirmed with citeable online source.
 
 ```{r}
 #Analytical Resuts
-sampleAge = 100e6 #Ma
+#Sample Age: an approximate age is required, for this exercise, this means we are making an assumption that results in a minimum age: (max time = max inherited 21ne, then: measured 21Ne - max inherited 21ne)
+sample_age = 100e6 #Ma
 
 #Standards and Constants
 U238_abundance = 0.992742
@@ -172,7 +180,6 @@ extended_geochem_data %>%
 ### Plot the cocentration of U and Th
 ```{r}
 extended_geochem_data %>%
-  filter(grepl("OV",sample_id)) %>% 
   filter(!is.na(isotope)) %>% 
   ggplot(aes(x=sample_id,y=iso_ppm,fill = isotope))+
   geom_bar(stat = "identity")+
@@ -195,7 +202,7 @@ extended_geochem_data=tbl_df(extended_geochem_data)
 
 #ok! now we have a big clean data set in which to do cross math with!
 #BUT... need to add other constants like avogadro and sample age
-extended_geochem_data=mutate(extended_geochem_data, avogadro,sampleAge)
+extended_geochem_data=mutate(extended_geochem_data, avogadro,sample_age)
 
 extended_geochem_data %>% 
   arrange(sample_id) 
@@ -219,13 +226,11 @@ extended_geochem_data=extended_geochem_data %>%
 #Show results in data table
 extended_geochem_data %>%
   select(sample_id,numeric_ppm,isotope,parent_atoms) %>%
-  filter(grepl("OV",sample_id)) %>%
   arrange(sample_id) %>% 
   datatable() 
 
 #Plot Parent atoms/sample
 extended_geochem_data %>%
-  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=parent_atoms, color=isotope))+
   geom_point()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -236,21 +241,19 @@ extended_geochem_data %>%
 ####Alpha decays
 How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of parent isotopes, and the 1/2 life of the isotope.
 
-Formula: alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1)
+Formula: alpha_decays = parent_atoms*(exp(lambda*sample_age)-1)
 ```{r}
 extended_geochem_data=extended_geochem_data %>% 
-  mutate(alpha_decays = parent_atoms*(exp(lambda*sampleAge)-1))
+  mutate(alpha_decays = parent_atoms*(exp(lambda*sample_age)-1))
 
 #Show results in data table
 extended_geochem_data %>%
   select(sample_id,numeric_ppm,isotope,alpha_decays) %>%
-  filter(grepl("OV",sample_id)) %>%
   arrange(sample_id) %>% 
   datatable() 
 
 #Plot decays/sample
 extended_geochem_data %>%
-  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=alpha_decays, color=isotope))+
   geom_point()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -270,13 +273,11 @@ extended_geochem_data=extended_geochem_data %>%
 #Show results in data table
 extended_geochem_data %>%
   select(sample_id,numeric_ppm,isotope,alpha_particles) %>%
-  filter(grepl("OV",sample_id)) %>%
   arrange(sample_id) %>% 
   datatable() 
 
 #Plot alpha particles/decay
 extended_geochem_data %>%
-  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=alpha_particles,y=alpha_decays, color=isotope))+
   geom_point()+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -299,7 +300,6 @@ extended_geochem_data=extended_geochem_data %>%
 #Show results in data table
 extended_geochem_data %>%
   select(sample_id,numeric_ppm,isotope,ne21_nucl_n_atoms) %>%
-  filter(grepl("OV",sample_id)) %>%
   arrange(sample_id) %>% 
   datatable() 
 
@@ -320,7 +320,6 @@ Above: What are we learning here? As expected, the greater the concentration of 
 ```{r}
 #Plot histogram showing the porportion of each isotope per sample
 extended_geochem_data %>%
-  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms,fill = isotope))+
   geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -353,7 +352,6 @@ extended_geochem_data %>%
 ```{r}
 #Plot Th and U as dots instead or bar graph as above
 extended_geochem_data %>%
-  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=ne21_nucl_n_atoms, color=isotope))+
   geom_point(aes(shape = isotope))+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -374,13 +372,11 @@ extended_geochem_data= extended_geochem_data %>%
 #Show results in data table
 extended_geochem_data %>%
   select(sample_id,numeric_ppm,isotope,ne21_atoms_per_gram) %>%
-  filter(grepl("OV",sample_id)) %>%
   arrange(sample_id) %>% 
   datatable() 
 
 #Plot atoms/grm
 extended_geochem_data %>%
-  filter(grepl("OV",sample_id)) %>%
   ggplot(aes(x=sample_id,y=ne21_atoms_per_gram, color=isotope))+
   geom_point(aes(shape = isotope))+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
@@ -399,8 +395,7 @@ matches spreedsheet calculations
 # 1st sum the atoms/gram data predicted by Coxx et al calculations
 extended_geochem_data %>%
   group_by(sample_id) %>%
-  summarise(sum(ne21_atoms_per_gram)) %>%
-  filter(grepl("OV",sample_id)) %>%
+  summarise(sum(ne21_atoms_per_gram)) %>% 
   arrange(sample_id) %>%
   datatable()
 ```
@@ -411,7 +406,6 @@ Total measured 21Ne from BGC
 noble_gas_data %>% 
   select(sample_id, Total.cosmogenic.Ne.21...Matoms.g.) %>% 
   filter(!is.na(sample_id)) %>% 
-  filter(grepl("OV",sample_id)) %>% 
   datatable()
   
 
@@ -424,15 +418,13 @@ noble_gas_data %>%
 # 1st sum the atoms/gram data predicted by Coxx et al calculations
 x=extended_geochem_data %>%
   group_by(sample_id) %>%
-  summarise((sum(ne21_atoms_per_gram)/1E6)) %>%
-  filter(grepl("OV",sample_id))
+  summarise((sum(ne21_atoms_per_gram)/1E6))
   datatable(x)
 
 # 2nd look at the atoms/gram from noble gas data
 y=noble_gas_data %>% 
   select(sample_id, Matoms.g) %>% 
-  filter(!is.na(sample_id)) %>% 
-  filter(grepl("OV",sample_id))
+  filter(!is.na(sample_id))
 
 #join the two datatables together
 full_join(x,y,by="sample_id") %>% 
