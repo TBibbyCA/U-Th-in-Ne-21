@@ -3,7 +3,7 @@ output:
   html_document: default
   pdf_document: default
 ---
-```{r, message=FALSE, }
+```{r Libraries, message=FALSE}
 #Load libraries
 library(tidyverse)
 library(stringr)
@@ -23,19 +23,15 @@ To import U and Th data from Dan, calculate the background 21Ne expected based o
 
 ##1st: Specify site abbreviation of interest: 
 ie. OV, MC, ML, etc.
-```{r}
+```{r Location Filter}
 site_location="OV"
 ```
-##1st: Specify site abbreviation of interest: 
-ie. OV, MC, ML, etc.
-```{r}
-site_location="OV"
-```
+
 
 ##Then: Organize Data
 ###Read geochemical data csv from Dan Morgan
 
-```{r}
+```{r Import Data}
 #Open geochemistry data from Dan .csv file path
 geochem_data <- read.csv("~/Box\ Sync/Bibby_UCSB_box/Research/Antarctica/Ong_Valley_Moraine_Canyon/U-Th_in_Ne-21/data_original/data_dirty/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE) %>%
 as_data_frame() %>%
@@ -45,7 +41,7 @@ geochem_data
 
 ###Read noble_gas_data csv from Dan Morgan
 
-```{r}
+```{r Import Data}
 #Open noble gas results from Dan
 noble_gas_data <- read.csv("~/Box\ Sync/Bibby_UCSB_box/Research/Antarctica/Ong_Valley_Moraine_Canyon/U-Th_in_Ne-21/data_original/data_cleaned/Ne21_OV_MC_Aug2015_final_clean.csv" , stringsAsFactors = FALSE) %>%
   as_data_frame() %>% 
@@ -79,7 +75,8 @@ geochem_data <- geochem_data %>%
   filter(grepl(site_location,sample_id)) 
 
 geochem_data %>%
-  arrange(sample_id)
+  arrange(sample_id) %>% 
+  datatable()
 ```
 
 ###Create data table of constants: elem_info
@@ -88,11 +85,8 @@ These need to be double checked and confirmed with citeable online source.
 ```{r}
 #Analytical Resuts
 #Sample Age: an approximate age is required, for this exercise, this means we are making an assumption that results in a minimum age: (max time = max inherited 21ne, then: measured 21Ne - max inherited 21ne)
-<<<<<<< HEAD
-sample_age = 100e6 #Ma
-=======
+
 sample_age = 2e6 #Ma
->>>>>>> e4d94ce1c69cfaf0ebd9491a2278cbc2c6d2c941
 
 #Standards and Constants
 U238_abundance = 0.992742
@@ -186,7 +180,7 @@ extended_geochem_data <- lapply(elements, atom_splitter, dat = geochem_data, ele
   bind_rows()
 
 extended_geochem_data %>% 
-  select(sample_id,element,isotope,isoprob,numeric_ppm,iso_ppm) %>%
+  select(sample_id,element,isotope,isoprob,numeric_ppm,below_limit_ppm,iso_ppm) %>%
   filter(element %in%c("U","Th") ) %>%
   arrange(sample_id) %>% 
   datatable()
