@@ -3,6 +3,15 @@ output:
   html_document: default
   pdf_document: default
 ---
+```{r, message=FALSE, }
+#Load libraries
+library(tidyverse)
+library(stringr)
+library(DT) #https://rstudio.github.io/DT/
+library(knitr)
+library(stringi)
+library(ggplot2)
+```
 
 ```{r setup,include=FALSE}
 #supress written code from displaying in html document
@@ -11,14 +20,11 @@ knitr::opts_chunk$set(echo=FALSE,warning = FALSE)
 
 #Document Summary:
 To import U and Th data from Dan, calculate the background 21Ne expected based on those concentrations, and compare it to measured concentrations from Noble Gas Mass Spectrometer
-```{r, message=FALSE, }
-#Load libraries
-library(tidyverse)
-library(stringr)
-library(DT)
-library(knitr)
-library(stringi)
-library(ggplot2)
+
+##1st: Specify site abbreviation of interest: 
+ie. OV, MC, ML, etc.
+```{r}
+site_location="OV"
 ```
 ##1st: Specify site abbreviation of interest: 
 ie. OV, MC, ML, etc.
@@ -26,7 +32,7 @@ ie. OV, MC, ML, etc.
 site_location="OV"
 ```
 
-##1st: Organize Data
+##Then: Organize Data
 ###Read geochemical data csv from Dan Morgan
 
 ```{r}
@@ -82,7 +88,11 @@ These need to be double checked and confirmed with citeable online source.
 ```{r}
 #Analytical Resuts
 #Sample Age: an approximate age is required, for this exercise, this means we are making an assumption that results in a minimum age: (max time = max inherited 21ne, then: measured 21Ne - max inherited 21ne)
+<<<<<<< HEAD
 sample_age = 100e6 #Ma
+=======
+sample_age = 2e6 #Ma
+>>>>>>> e4d94ce1c69cfaf0ebd9491a2278cbc2c6d2c941
 
 #Standards and Constants
 U238_abundance = 0.992742
@@ -126,12 +136,17 @@ lambda = c(U238_alpha,U235_alpha,Th232_alpha)
 elem_info=data_frame(element=c("U","U","Th"),isotope=c("U238","U235","Th232"),abundance,
 mass,num_alpha_decays_in_chain,ne21_nucleogenic_P_rate,lambda)
 
-elem_info
+elem_info %>% 
+  datatable()
 ```
 
 ### Continue cleaning up geochem_data
 Separate U and Th into their respective isotopes:
 Coxx et al provides neon prodution rates as a function of U235, U238, and Th232. This means we need to normalize the measured ppm of U and Th to their respective abundances before proceeding. As an example, if our measured total U concentraion is 100 ppm, and the abundance of U235 is 1% and U238 is 99%, we expect that in our sample, of 100ppm, 1ppm is U235 and the remaining 99ppm is U238. These get summed at the end to calculate toal Ne21.
+
+isoprob = isotope abundance
+numeric_ppm = measured concentration of element (not isotope)
+iso_ppm = calculated expected concentration of isotope due to natural abundance
 
 ```{r}
 #-----write a function to split elements into isotopes U235 and U238-------------
@@ -145,7 +160,7 @@ atom_splitter=function(i, dat, elem_info){
     filter(element == i) %>% 
     mutate(isotope = NA,
            iso_ppm = numeric_ppm,
-           isoprop = 1)
+           isoprob = 1)
   
   isos <- elem_info %>% 
     filter(element == i)
@@ -158,8 +173,8 @@ atom_splitter=function(i, dat, elem_info){
       
     tdat <- tdat[rep(1:dim(tdat)[1], length(isos$isotope)),] %>% 
       arrange(sample_id) %>% 
-      mutate(isoprop = props, 
-             iso_ppm = numeric_ppm * isoprop,
+      mutate(isoprob = props, 
+             iso_ppm = numeric_ppm * isoprob,
              isotope = isotopes)
     
   }
@@ -171,13 +186,13 @@ extended_geochem_data <- lapply(elements, atom_splitter, dat = geochem_data, ele
   bind_rows()
 
 extended_geochem_data %>% 
-  select(sample_id,element,isotope,isoprop,numeric_ppm,iso_ppm) %>%
+  select(sample_id,element,isotope,isoprob,numeric_ppm,iso_ppm) %>%
   filter(element %in%c("U","Th") ) %>%
   arrange(sample_id) %>% 
   datatable()
 ```
 
-### Plot the cocentration of U and Th
+### Plot the expected concentration of U and Th isotopes (iso_ppm)
 ```{r}
 extended_geochem_data %>%
   filter(!is.na(isotope)) %>% 
@@ -188,8 +203,10 @@ extended_geochem_data %>%
   xlab("")+
   ylab("concentration (ppm)")
 ```
+So there is some variation in U and Th concentration in bedrock samples, though it's only 2-3 ppm which isn't that much. We'll have to see how much this affects the amount of nucleogenic neon produced as calculated below.
 
 ### Merge geochem_data and elem_info into a single dataframe called: extended_geochem_data
+This is just doing some datamanagement, to get everything into a common data frame so that we can start doing math across entries. It's ungle, but it makes life a little easier.
 
 ```{r}
 #So first get everything in a single
@@ -205,7 +222,8 @@ extended_geochem_data=tbl_df(extended_geochem_data)
 extended_geochem_data=mutate(extended_geochem_data, avogadro,sample_age)
 
 extended_geochem_data %>% 
-  arrange(sample_id) 
+  arrange(sample_id) %>% 
+  datatable()
 ```
 
 ##2:Do calculations
@@ -237,9 +255,10 @@ extended_geochem_data %>%
   ggtitle("Parent atoms")+
   ylab("Parent atoms (n)")
 ```
+Looks like the numper of parent atoms matches the intial element concentration. That's good!
 
 ####Alpha decays
-How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of parent isotopes, and the 1/2 life of the isotope.
+How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of parent isotopes, and the 1/2 life of the isotope. The important thing here is to decide what the sample age is first. Currently it's set at `r sample_age` yrs. Eventually we'll either need to calculate an expected inital age for every sample or use a single number. But currently I'm just using a reasonable max for `r site_location`.
 
 Formula: alpha_decays = parent_atoms*(exp(lambda*sample_age)-1)
 ```{r}
@@ -260,12 +279,12 @@ extended_geochem_data %>%
   ggtitle("Alpha Decays")+
   ylab("Alpha decays (n)")
 ```
+Looks like the numper of alpha decays matches the intial element concentration. That's good!
 
 #### Alpha particles
-Since we know how many radioactive alpha decays have occured from the parent atom of each sample, we can calculate the number of alpha particles that have been emitted in the crystal lattice for the lifetime of the sample.This is important because it's the emission of an alpha particle which then interacts with an oxygen isotope in quartz to form 21Ne. The number of ejected alpha particles is based on the number of alpha decays that occur in the parent isotope during the decay process. If you look at the Thorium series decay chain (or decay path), you'll see that there are 6 alpha particles emited.[https://en.wikipedia.org/wiki/Decay_chain]
-Thus, we are just multiplying the number of radioactive decays that have occurred times the number of alpha particles emitted for each radioactive decay to get the total number of alpha particles that can smash into oxygen isotopes to form 21Ne.
+Since we know how many radioactive alpha decays have occured from the parent atom of each sample, we can calculate the number of alpha particles that have been emitted in the crystal lattice for the lifetime of the sample.This is important because it's the emission of an alpha particle which then interacts with an oxygen isotope in quartz to form 21Ne. The number of ejected alpha particles is based on the number of alpha decays that occur in the parent isotope during the decay process. If you look at the Thorium series decay chain (or decay path), you'll see that there are 6 alpha particles emited. [https://en.wikipedia.org/wiki/Decay_chain]. Thus, we are just multiplying the number of radioactive decays that have occurred x the number of alpha particles emitted for each radioactive decay to get the total number of alpha particles that can smash into oxygen isotopes to form 21Ne.
 
-Formula:alpha_particles = num_alpha_decays_in_chain*alpha_decays
+Formula: alpha_particles = num_alpha_decays_in_chain*alpha_decays
 ```{r}
 extended_geochem_data=extended_geochem_data %>% 
   mutate(alpha_particles = num_alpha_decays_in_chain*alpha_decays)
@@ -285,9 +304,12 @@ extended_geochem_data %>%
   xlab("# of alpha particles")+
   ylab("# of alpha decays")
 ```
+I need to explain what this plot is showing, but for now, as expected, the larger number of alpha decays due to higher concentraions of U and Th, then the greater number of ejecting alpha particles. Slope should be 1x1. Additionally, the Th232 series dominates, followed by U238, and then a very minor fraction from U235.
 
 #### Neon 21 from normal radioactive decay
 So how much 21Ne is produced in-situ from normal radioactive decay of nearby U and Th? We are now relying on the total number of alpha particles we just calculated and the experimental results of Coxx et al for the production rate of Neon in quartz. Coxx et al blasted some pure quartz standards with an ion source and in their paper provide production rates in Table 6. So again we just need to multiply the number of total alpha particles ejected from U and Th by the "alpha based production rate or nucleogenic production rate" of 21Ne (atoms/alpha particle).
+
+The key thing here is Coxx et al's production rate which is `r ne21_nucleogenic_P_rate` (atoms/alpha particle I think)
 
 Formula: ne21_nucl_n_atoms = alpha_particles*ne21_nucleogenic_P_rate
 
@@ -313,6 +335,7 @@ extended_geochem_data %>%
   ylab("Nucleogenic 21Ne (atoms)")+
   xlab("Concentration (ppm)")
 ```
+
 Above: What are we learning here? As expected, the greater the concentration of U and Th, the greater the concentration of 21Ne. In the U series, U238 is the dominant producer of 21Ne but it is also 99% abundant (as compared to U235). There's something else here, but I can't put my finger on it. I go into it below.
 
 
@@ -430,9 +453,11 @@ y=noble_gas_data %>%
 full_join(x,y,by="sample_id") %>% 
   arrange(sample_id) %>%
   datatable()
-  
-
 
 ```
 
 There's some major discrepencies goign on here.. (above)
+actually I think it's working now. Let's plot the measued 21Ne from berkeley against the calculated one
+```{r}
+
+```
