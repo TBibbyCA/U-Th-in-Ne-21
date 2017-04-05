@@ -41,7 +41,7 @@ geochem_data
 
 ###Read noble_gas_data csv from Dan Morgan
 
-```{r Import Data}
+```{r Import More Data}
 #Open noble gas results from Dan
 noble_gas_data <- read.csv("~/Box\ Sync/Bibby_UCSB_box/Research/Antarctica/Ong_Valley_Moraine_Canyon/U-Th_in_Ne-21/data_original/data_cleaned/Ne21_OV_MC_Aug2015_final_clean.csv" , stringsAsFactors = FALSE) %>%
   as_data_frame() %>% 
@@ -351,21 +351,6 @@ extended_geochem_data %>%
 Above: This histogram gives a clear picture of the impact of each element. But as I look at it closer there's something funny going on. On first pass, Th makes up over half of the nucleogenic neon. But in the pebble samples, U is responsible for the bulk of neon. Not sure why the ratio of Th:U is not the same for all samples. Maybe it depends on the amount (mass) of the sample measured? Or maybe it's a function of the concentration (ppm) in each sample?
 
 We can compare this relationship of ppm to concentration using the previous plot. Maybe it's a slope issue? U has a steeper slope so at lower concentrations (ppm) it produces more neon than Th?
-
-```{r}
-###Lets do the same plot as above but highlight samples from Ong Valley
-# #Plot dots and highlight a couple samples with their names
-# extended_geochem_data %>%
-#   arrange(numeric_ppm) %>%
-#   filter(grepl("OV",sample_id)) %>%
-#   ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope))+
-#   geom_point()+
-#   geom_smooth(method = 'loess')+
-#   ggtitle("Nucleogenic 21Ne vs Th & U concentration")+
-#   ylab("Nucleogenic 21Ne (atoms)")+
-#   xlab("Concentration (ppm)")
-#   
-```
 
 
 ```{r}
