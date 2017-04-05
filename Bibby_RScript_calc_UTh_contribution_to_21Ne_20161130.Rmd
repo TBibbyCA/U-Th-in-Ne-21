@@ -243,11 +243,12 @@ extended_geochem_data %>%
 
 #Plot Parent atoms/sample
 extended_geochem_data %>%
-  ggplot(aes(x=sample_id,y=parent_atoms, color=isotope))+
-  geom_point()+
+  ggplot(aes(x=sample_id,y=parent_atoms, fill=isotope))+
+  geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
   ggtitle("Parent atoms")+
   ylab("Parent atoms (n)")
+
 ```
 Looks like the numper of parent atoms matches the intial element concentration. That's good!
 
@@ -267,11 +268,12 @@ extended_geochem_data %>%
 
 #Plot decays/sample
 extended_geochem_data %>%
-  ggplot(aes(x=sample_id,y=alpha_decays, color=isotope))+
-  geom_point()+
+  ggplot(aes(x=sample_id,y=alpha_decays, fill=isotope))+
+  geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
   ggtitle("Alpha Decays")+
   ylab("Alpha decays (n)")
+
 ```
 Looks like the numper of alpha decays matches the intial element concentration. That's good!
 
@@ -293,6 +295,7 @@ extended_geochem_data %>%
 extended_geochem_data %>%
   ggplot(aes(x=alpha_particles,y=alpha_decays, color=isotope))+
   geom_point()+
+  geom_smooth(method = 'loess')+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
   ggtitle("# of alpha particles vs alpha decays")+
   xlab("# of alpha particles")+
