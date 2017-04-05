@@ -352,20 +352,19 @@ Above: This histogram gives a clear picture of the impact of each element. But a
 
 We can compare this relationship of ppm to concentration using the previous plot. Maybe it's a slope issue? U has a steeper slope so at lower concentrations (ppm) it produces more neon than Th?
 
-###Lets do the same plot as above but highlight samples from Ong Valley
-
 ```{r}
-#Plot dots and highlight a couple samples with their names
-extended_geochem_data %>%
-  arrange(numeric_ppm) %>%
-  filter(grepl("OV",sample_id)) %>%
-  ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope))+
-  geom_point()+
-  geom_smooth(method = 'loess')+
-  ggtitle("Nucleogenic 21Ne vs Th & U concentration")+
-  ylab("Nucleogenic 21Ne (atoms)")+
-  xlab("Concentration (ppm)")
-  
+###Lets do the same plot as above but highlight samples from Ong Valley
+# #Plot dots and highlight a couple samples with their names
+# extended_geochem_data %>%
+#   arrange(numeric_ppm) %>%
+#   filter(grepl("OV",sample_id)) %>%
+#   ggplot(aes(y=ne21_nucl_n_atoms,x=numeric_ppm, color=isotope))+
+#   geom_point()+
+#   geom_smooth(method = 'loess')+
+#   ggtitle("Nucleogenic 21Ne vs Th & U concentration")+
+#   ylab("Nucleogenic 21Ne (atoms)")+
+#   xlab("Concentration (ppm)")
+#   
 ```
 
 
@@ -397,8 +396,8 @@ extended_geochem_data %>%
 
 #Plot atoms/grm
 extended_geochem_data %>%
-  ggplot(aes(x=sample_id,y=ne21_atoms_per_gram, color=isotope))+
-  geom_point(aes(shape = isotope))+
+  ggplot(aes(x=sample_id,y=ne21_atoms_per_gram, fill=isotope))+
+  geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
   ggtitle("Th & U atoms per gram")+
   xlab("")+
