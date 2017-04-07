@@ -21,14 +21,14 @@ knitr::opts_chunk$set(echo=FALSE,warning = FALSE)
 #Document Summary:
 To import U and Th data from Dan, calculate the background 21Ne expected based on those concentrations, and compare it to measured concentrations from Noble Gas Mass Spectrometer
 
-##1st: Specify site abbreviation of interest: 
+##1: Specify site abbreviation of interest: 
 ie. OV, MC, ML, etc.
 ```{r Location Filter}
 site_location="OV"
 ```
 
 
-##Then: Organize Data
+##2: Organize Data
 ###Read geochemical data csv from Dan Morgan
 
 ```{r Import Data}
@@ -215,16 +215,22 @@ extended_geochem_data=tbl_df(extended_geochem_data)
 #BUT... need to add other constants like avogadro and sample age
 extended_geochem_data=mutate(extended_geochem_data, avogadro,sample_age)
 
-extended_geochem_data %>% 
+extended_geochem_data %>%
   arrange(sample_id) %>% 
   datatable()
 ```
 
-##2:Do calculations
+##3:Do calculations
 ####Parent Atoms
 Calculate the number of original parent atoms of U and Th based on the measured concentration of each element.
 
-Formula: parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro)
+Formula: parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro
+parent_atoms = A(numeric_ppm/1E6)*B(abundance)*C(wtkg*1000)*D(avogadro/mass)
+A: 1ppm = 1g/1E6g, so whatever we measured as ppm is the same as that concentration in grams over 1,000,000 grams. This gives us grams of element in 1E6 grams of solution
+B: What fraction of the U is actually U238? Multiply by abundance
+C: convert mass of solution from to kg to g for unit similarity. Then multiply mass of solution in grams by concentration. This gives us total grams of the element before solution.
+D: now we have grams of the element but we want atoms, so multiply by conversion factor (6.022E23 atoms=1 molecular mass of element [238g for U])
+
 
 ```{r}
 # Ok so the data is all there finally, now do some math across columns
@@ -232,7 +238,7 @@ Formula: parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro)
 
 extended_geochem_data=extended_geochem_data %>% 
   filter(is.na(abundance)==FALSE ) %>% 
-  mutate(parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro) %>%
+  mutate(parent_atoms = ((numeric_ppm/1E6)*(abundance)*(wtkg*1000)*(avogadro/mass))) %>%
   as_data_frame()
 
 #Show results in data table
@@ -250,7 +256,18 @@ extended_geochem_data %>%
   ylab("Parent atoms (n)")
 
 ```
-Looks like the numper of parent atoms matches the intial element concentration. That's good!
+Looks like the number of parent atoms matches the intial element concentration. As expected
+
+Lets calculate again but use just iso_ppm and don't multiply by abundance
+###Start Here
+```{r}
+extended_geochem_data %>% 
+  mutate(parent_atoms2 = ((iso_ppm/1E6)*(wtkg*1000)*(avogadro/mass))) %>%
+  mutate(difference = parent_atoms2-parent_atoms) %>% 
+  as_data_frame() %>% 
+  select(sample_id, isotope, numeric_ppm, iso_ppm, parent_atoms,parent_atoms2, difference) %>% 
+  datatable()
+```
 
 ####Alpha decays
 How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of parent isotopes, and the 1/2 life of the isotope. The important thing here is to decide what the sample age is first. Currently it's set at `r sample_age` yrs. Eventually we'll either need to calculate an expected inital age for every sample or use a single number. But currently I'm just using a reasonable max for `r site_location`.
@@ -391,7 +408,7 @@ extended_geochem_data %>%
 ```
 
 
-##3: Compare measured in-situ 21Ne to contributions from U and Th
+##4: Compare measured in-situ 21Ne to contributions from U and Th
 
 Total nucleogenic 21Ne per sample calculated from Coxx et al. (add Th and U atoms/gram)
 matches spreedsheet calculations
