@@ -224,6 +224,8 @@ extended_geochem_data %>%
 ####Parent Atoms
 Calculate the number of original parent atoms of U and Th based on the measured concentration of each element.
 
+No this is just the number of atoms of U and Th in the measured sample.
+
 Formula: parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro
 Explanation of calculation:
 parent_atoms = A(numeric_ppm/1E6)*B(abundance)*C(wtkg*1000)*D(avogadro/mass)
@@ -253,14 +255,14 @@ extended_geochem_data %>%
   ggplot(aes(x=sample_id,y=parent_atoms, fill=isotope))+
   geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
-  ggtitle("Parent atoms")+
-  ylab("Parent atoms (n)")
+  ggtitle("Atoms of U and Th in measured solution")+
+  ylab("atoms (n)")
 
 ```
-Looks like the number of parent atoms matches the proportion of intial element concentration. As expected
+Looks like the number of parent atoms matches the proportion of intial element concentration. Good!
 
-Lets calculate again but use just iso_ppm and don't multiply by abundance
-###Start Here
+Lets calculate again but use just iso_ppm and don't multiply by abundance. (the concentration of iso_ppm = inital concentration * abundance already.)
+
 ```{r}
 extended_geochem_data %>% 
   mutate(parent_atoms2 = ((iso_ppm/1E6)*(wtkg*1000)*(avogadro/mass))) %>%
@@ -269,8 +271,17 @@ extended_geochem_data %>%
   select(sample_id, isotope, numeric_ppm, iso_ppm, parent_atoms,parent_atoms2, difference) %>% 
   datatable()
 ```
+Looks good, math works out both ways. -TB 20170414
 
+##Start Here
+Coxx et al, via our correspondence called the above calculation "parent atoms", but I think he's wrong. I think this calcualtion give "current atoms". Since we have current atoms, we need to figure out how many were there in the past, since some have since decayed to another form. We can estimate how much time has passed (t), and if we know the hypothetical decay rate of an isotope, we shold be able to  calculate the number of initial atoms.
+
+I think it'd be something like:
+atoms_initial - [decay rate(atoms/year) * years] = atoms_present
+
+#### Calculate number of inital atoms?
 ####Alpha decays
+
 How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of parent isotopes, and the 1/2 life of the isotope. The important thing here is to decide what the sample age is first. Currently it's set at `r sample_age` yrs. Eventually we'll either need to calculate an expected inital age for every sample or use a single number. But currently I'm just using a reasonable max for `r site_location`.
 
 Formula: alpha_decays = parent_atoms*(exp(lambda*sample_age)-1)
