@@ -225,11 +225,12 @@ extended_geochem_data %>%
 Calculate the number of original parent atoms of U and Th based on the measured concentration of each element.
 
 Formula: parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro
+Explanation of calculation:
 parent_atoms = A(numeric_ppm/1E6)*B(abundance)*C(wtkg*1000)*D(avogadro/mass)
-A: 1ppm = 1g/1E6g, so whatever we measured as ppm is the same as that concentration in grams over 1,000,000 grams. This gives us grams of element in 1E6 grams of solution
-B: What fraction of the U is actually U238? Multiply by abundance
-C: convert mass of solution from to kg to g for unit similarity. Then multiply mass of solution in grams by concentration. This gives us total grams of the element before solution.
-D: now we have grams of the element but we want atoms, so multiply by conversion factor (6.022E23 atoms=1 molecular mass of element [238g for U])
+A: 1ppm = 1g/1 million grams, so whatever we measured as ppm is the same as that concentration in grams over 1,000,000 grams. This gives us grams of element in 1 million grams of solution
+B: What fraction of the U is actually the isotope U238 vs U235? Multiply concentration by % abundance
+C: convert mass of solution from to kg to g so (A) and (C) are in the same units (1kg = 1000g). Then multiply the measured mass of solution in grams by concentration. This gives us total grams of the element before solution.
+D: now we have grams of the element but we want atoms. Multiply grams by Avogadro's # (6.022E23 atoms=1 molecular mass of element [238g for U]) to get atoms
 
 
 ```{r}
@@ -243,7 +244,7 @@ extended_geochem_data=extended_geochem_data %>%
 
 #Show results in data table
 extended_geochem_data %>%
-  select(sample_id,numeric_ppm,isotope,parent_atoms) %>%
+  select(sample_id,numeric_ppm,iso_ppm,isotope,parent_atoms) %>%
   arrange(sample_id) %>% 
   datatable() 
 
@@ -256,7 +257,7 @@ extended_geochem_data %>%
   ylab("Parent atoms (n)")
 
 ```
-Looks like the number of parent atoms matches the intial element concentration. As expected
+Looks like the number of parent atoms matches the proportion of intial element concentration. As expected
 
 Lets calculate again but use just iso_ppm and don't multiply by abundance
 ###Start Here
