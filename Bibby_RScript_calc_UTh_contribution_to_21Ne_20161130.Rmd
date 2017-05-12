@@ -11,6 +11,8 @@ library(DT) #https://rstudio.github.io/DT/
 library(knitr)
 library(stringi)
 library(ggplot2)
+rm(list=ls()) #clear environments
+
 ```
 
 ```{r setup,include=FALSE}
@@ -33,7 +35,7 @@ site_location="OV"
 
 ```{r Import Data}
 #Open geochemistry data from Dan .csv file path
-geochem_data <- read.csv("~/Box\ Sync/Bibby_UCSB_box/Research/Antarctica/Ong_Valley_Moraine_Canyon/U-Th_in_Ne-21/data_original/data_dirty/GeochemistryDataAntML2015.csv" , stringsAsFactors = FALSE) %>%
+geochem_data <- read.csv("~/Box\ Sync/Bibby_UCSB_box/Research/Antarctica/Ong_Valley_Moraine_Canyon/U-Th_in_Ne-21/data_original/data_dirty/GeochemistryDataAntML2015_w_testdata.csv" , stringsAsFactors = FALSE) %>%
 as_data_frame() %>%
 rename(sample_id = ANALYTE, wtkg = WtKg)
 geochem_data
@@ -138,8 +140,8 @@ elem_info %>%
 Separate U and Th into their respective isotopes:
 Coxx et al provides neon prodution rates as a function of U235, U238, and Th232. This means we need to normalize the measured ppm of U and Th to their respective abundances before proceeding. As an example, if our measured total U concentraion is 100 ppm, and the abundance of U235 is 1% and U238 is 99%, we expect that in our sample, of 100ppm, 1ppm is U235 and the remaining 99ppm is U238. These get summed at the end to calculate toal Ne21.
 
-isoprob = isotope abundance
-numeric_ppm = measured concentration of element (not isotope)
+isoprob = isotope abundance  
+numeric_ppm = measured concentration of element (not isotope)  
 iso_ppm = calculated expected concentration of isotope due to natural abundance
 
 ```{r}
@@ -186,7 +188,7 @@ extended_geochem_data %>%
   datatable()
 ```
 
-### Plot the expected concentration of U and Th isotopes (iso_ppm)
+### Plot the concentration of U and Th isotopes (iso_ppm)
 ```{r}
 extended_geochem_data %>%
   filter(!is.na(isotope)) %>% 
@@ -197,10 +199,11 @@ extended_geochem_data %>%
   xlab("")+
   ylab("concentration (ppm)")
 ```
+  
 So there is some variation in U and Th concentration in bedrock samples, though it's only 2-3 ppm which isn't that much. We'll have to see how much this affects the amount of nucleogenic neon produced as calculated below.
 
 ### Merge geochem_data and elem_info into a single dataframe called: extended_geochem_data
-This is just doing some datamanagement, to get everything into a common data frame so that we can start doing math across entries. It's ungle, but it makes life a little easier.
+This is just doing some data management, to get everything into a common data frame so that we can start doing math across entries. It's ugly, but it makes life a little easier.
 
 ```{r}
 #So first get everything in a single
@@ -221,18 +224,20 @@ extended_geochem_data %>%
 ```
 
 ##3:Do calculations
-####Parent Atoms
-Calculate the number of original parent atoms of U and Th based on the measured concentration of each element.
+####Current Atoms
+Calculate the number of current atoms of U and Th based on the measured concentration of each element.  
 
-No this is just the number of atoms of U and Th in the measured sample.
+This is just the number of atoms of U and Th in the measured sample. I prefer to call this "current atoms" but via communication with Coxxm he called this calculation "parent_atoms" terminology for now.  
 
-Formula: parent_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro
+Formula: current_atoms = (numeric_ppm/1E6)*wtkg*1000*abundance*(1/mass)*avogadro
+  
 Explanation of calculation:
-parent_atoms = A(numeric_ppm/1E6)*B(abundance)*C(wtkg*1000)*D(avogadro/mass)
-A: 1ppm = 1g/1 million grams, so whatever we measured as ppm is the same as that concentration in grams over 1,000,000 grams. This gives us grams of element in 1 million grams of solution
-B: What fraction of the U is actually the isotope U238 vs U235? Multiply concentration by % abundance
-C: convert mass of solution from to kg to g so (A) and (C) are in the same units (1kg = 1000g). Then multiply the measured mass of solution in grams by concentration. This gives us total grams of the element before solution.
-D: now we have grams of the element but we want atoms. Multiply grams by Avogadro's # (6.022E23 atoms=1 molecular mass of element [238g for U]) to get atoms
+current_atoms = A(numeric_ppm/1E6)*B(abundance)*C(wtkg*1000)*D(avogadro/mass)
+  
+A: 1ppm = 1g/1 million grams, so whatever we measured as ppm is the same as that concentration in grams over 1,000,000 grams. This gives us grams of element in 1 million grams of solution  
+B: What fraction of the U is actually the isotope U238 vs U235? Multiply concentration by % abundance  
+C: convert mass of solution from to kg to g so (A) and (C) are in the same units (1kg = 1000g). Then multiply the measured mass of solution in grams by concentration. This gives us total grams of the element before solution.  
+D: now we have grams of the element but we want atoms. Multiply grams by Avogadro's # (6.022E23 atoms=1 molecular mass of element [238g for U]) to get atoms  
 
 
 ```{r}
@@ -241,53 +246,70 @@ D: now we have grams of the element but we want atoms. Multiply grams by Avogadr
 
 extended_geochem_data=extended_geochem_data %>% 
   filter(is.na(abundance)==FALSE ) %>% 
-  mutate(parent_atoms = ((numeric_ppm/1E6)*(abundance)*(wtkg*1000)*(avogadro/mass))) %>%
+  mutate(current_atoms = ((numeric_ppm/1E6)*(abundance)*(wtkg*1000)*(avogadro/mass))) %>%
   as_data_frame()
 
 #Show results in data table
 extended_geochem_data %>%
-  select(sample_id,numeric_ppm,iso_ppm,isotope,parent_atoms) %>%
+  select(sample_id,numeric_ppm,iso_ppm,isotope,current_atoms) %>%
   arrange(sample_id) %>% 
   datatable() 
 
 #Plot Parent atoms/sample
 extended_geochem_data %>%
-  ggplot(aes(x=sample_id,y=parent_atoms, fill=isotope))+
+  ggplot(aes(x=sample_id,y=current_atoms, fill=isotope))+
   geom_bar(stat = "identity")+
   theme(axis.text.x = element_text(angle = 60, hjust = 1))+
   ggtitle("Atoms of U and Th in measured solution")+
   ylab("atoms (n)")
 
 ```
+  
 Looks like the number of parent atoms matches the proportion of intial element concentration. Good!
 
 Lets calculate again but use just iso_ppm and don't multiply by abundance. (the concentration of iso_ppm = inital concentration * abundance already.)
 
 ```{r}
 extended_geochem_data %>% 
-  mutate(parent_atoms2 = ((iso_ppm/1E6)*(wtkg*1000)*(avogadro/mass))) %>%
-  mutate(difference = parent_atoms2-parent_atoms) %>% 
+  mutate(current_atoms2 = ((iso_ppm/1E6)*(wtkg*1000)*(avogadro/mass))) %>%
+  mutate(difference = current_atoms2-current_atoms) %>% 
   as_data_frame() %>% 
-  select(sample_id, isotope, numeric_ppm, iso_ppm, parent_atoms,parent_atoms2, difference) %>% 
+  select(sample_id, isotope, numeric_ppm, iso_ppm, current_atoms,current_atoms2, difference) %>% 
   datatable()
 ```
-Looks good, math works out both ways. -TB 20170414
+Looks good, math works out both ways. -TB 20170414  
+(looking at the difference column comparing "parent"" to "parent2")
 
 ##Start Here
-Coxx et al, via our correspondence called the above calculation "parent atoms", but I think he's wrong. I think this calcualtion give "current atoms". Since we have current atoms, we need to figure out how many were there in the past, since some have since decayed to another form. We can estimate how much time has passed (t), and if we know the hypothetical decay rate of an isotope, we shold be able to  calculate the number of initial atoms.
+Coxx et al, via our correspondence called the above calculation "parent atoms", but I think he's wrong. I think this calculation gives "current atoms". Since we have current atoms, we need to figure out how many were there in the past. Some of the true "praent atoms" have decayed and we are left with the current measured atoms. We can estimate how much time has passed (t) using the intial cosmo concentration of $^{21}Ne$, and if we know the decay constant of an isotope, we should be able to  calculate the number of initial atoms.
 
 I think it'd be something like:
-atoms_initial - [decay rate(atoms/year) * years] = atoms_present
+atoms_initial - [decay rate(atoms/year) * years] = atoms_present  
+(this doens't work because it assumes a linear decay rate and radio active decay is exponential) thus you must use the formula below
 
-#### Calculate number of inital atoms?
+#### Calculate number of inital atoms
+Formula for radioactive decay
+$N_{0}~=N/e^{-\lambda * t}$
+
+```{r}
+extended_geochem_data %>%
+  arrange(sample_id) %>% 
+  mutate(initial_atoms=current_atoms/(exp(-lambda*sample_age))) %>%
+  select(sample_id,current_atoms,initial_atoms) %>% 
+  datatable()
+
+
+```
+
+
 ####Alpha decays
 
 How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of parent isotopes, and the 1/2 life of the isotope. The important thing here is to decide what the sample age is first. Currently it's set at `r sample_age` yrs. Eventually we'll either need to calculate an expected inital age for every sample or use a single number. But currently I'm just using a reasonable max for `r site_location`.
 
-Formula: alpha_decays = parent_atoms*(exp(lambda*sample_age)-1)
+Formula: alpha_decays = current_atoms*(exp(lambda*sample_age)-1)
 ```{r}
 extended_geochem_data=extended_geochem_data %>% 
-  mutate(alpha_decays = parent_atoms*(exp(lambda*sample_age)-1))
+  mutate(alpha_decays = current_atoms*(exp(lambda*sample_age)-1))
 
 #Show results in data table
 extended_geochem_data %>%
