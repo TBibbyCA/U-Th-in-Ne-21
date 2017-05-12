@@ -255,7 +255,7 @@ extended_geochem_data %>%
   arrange(sample_id) %>% 
   datatable() 
 
-#Plot Parent atoms/sample
+#Plot current atoms/sample
 extended_geochem_data %>%
   ggplot(aes(x=sample_id,y=current_atoms, fill=isotope))+
   geom_bar(stat = "identity")+
@@ -278,33 +278,30 @@ extended_geochem_data %>%
   datatable()
 ```
 Looks good, math works out both ways. -TB 20170414  
-(looking at the difference column comparing "parent"" to "parent2")
+(looking at the difference column comparing "current"" to "current2")
 
-##Start Here
 Coxx et al, via our correspondence called the above calculation "parent atoms", but I think he's wrong. I think this calculation gives "current atoms". Since we have current atoms, we need to figure out how many were there in the past. Some of the true "praent atoms" have decayed and we are left with the current measured atoms. We can estimate how much time has passed (t) using the intial cosmo concentration of $^{21}Ne$, and if we know the decay constant of an isotope, we should be able to  calculate the number of initial atoms.
 
 I think it'd be something like:
 atoms_initial - [decay rate(atoms/year) * years] = atoms_present  
-(this doens't work because it assumes a linear decay rate and radio active decay is exponential) thus you must use the formula below
+(this doens't work because it assumes a linear decay rate and radio active decay is exponential) thus you must use the formula below  
 
+##Start Here
 #### Calculate number of inital atoms
 Formula for radioactive decay
 $N_{0}~=N/e^{-\lambda * t}$
 
 ```{r}
 extended_geochem_data %>%
-  arrange(sample_id) %>% 
   mutate(initial_atoms=current_atoms/(exp(-lambda*sample_age))) %>%
-  select(sample_id,current_atoms,initial_atoms) %>% 
-  datatable()
-
+  mutate(difference=initial_atoms-current_atoms)
 
 ```
 
 
 ####Alpha decays
 
-How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of parent isotopes, and the 1/2 life of the isotope. The important thing here is to decide what the sample age is first. Currently it's set at `r sample_age` yrs. Eventually we'll either need to calculate an expected inital age for every sample or use a single number. But currently I'm just using a reasonable max for `r site_location`.
+How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of initial isotopes, and the 1/2 life of the isotope. The important thing here is to decide what the sample age is first. Currently it's set at `r sample_age/1E6` Mya. Eventually we'll either need to calculate an expected inital age for every sample or use a single number. But currently I'm just using a reasonable max for `r site_location`.
 
 Formula: alpha_decays = current_atoms*(exp(lambda*sample_age)-1)
 ```{r}
