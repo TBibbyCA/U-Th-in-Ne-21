@@ -286,7 +286,6 @@ I think it'd be something like:
 atoms_initial - [decay rate(atoms/year) * years] = atoms_present  
 (this doens't work because it assumes a linear decay rate and radio active decay is exponential) thus you must use the formula below  
 
-##Start Here
 #### Calculate number of inital atoms
 Formula for radioactive decay
 $N_{0}~=N/e^{-\lambda * t}$
@@ -302,8 +301,13 @@ extended_geochem_data %>%
 ####Alpha decays
 
 How many radioactive alpha decays have occurred during the lifetime of the sample? This is based on the age of the sample, the original concentration of initial isotopes, and the 1/2 life of the isotope. The important thing here is to decide what the sample age is first. Currently it's set at `r sample_age/1E6` Mya. Eventually we'll either need to calculate an expected inital age for every sample or use a single number. But currently I'm just using a reasonable max for `r site_location`.
+  
+##Start Here
+Some musings for when I pick this pack up. The equation below is the same equation to calculate number of daughter isotops (eqn 2.7). I'm not quite sure how the # of alpha decays is the same as number of daughetrs. I guess every alpha decay is the same as one alpha particle emission, which IS a function of time, decay rate and number of inital parent isotopes, which is essentially the same as number of daughetrs, but which daughters. There has to be an additional formula later that specifies the production rate of the daughter proportioanlly, like if it's lead or something earlier in the decay chain. This Miiiight be covered below but I haven't looked forward yet. -TB 20170512
 
-Formula: alpha_decays = current_atoms*(exp(lambda*sample_age)-1)
+Formula for number of alpha decays throughout the life of the sample:   
+$N_{\alpha_{decay}}=N*(e^{\lambda t}-1)$  
+alpha_decays = current_atoms*(exp(lambda*sample_age)-1)
 ```{r}
 extended_geochem_data=extended_geochem_data %>% 
   mutate(alpha_decays = current_atoms*(exp(lambda*sample_age)-1))
